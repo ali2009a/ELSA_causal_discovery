@@ -53,20 +53,24 @@ def preProcessToboccoUse(value):
 
 def preProcessMemIndex(value):
 	if ( (value == REFUSAL) or (value == NOT_ASKED) or (value== SCHD_NOT_APPLICABLE) or 
-		(value == NOT_APPLICABLE)):
+		(value == NOT_APPLICABLE) or (value == -7)):
 		return np.nan
 	else:
 		return value
 
-def readWaveData(basePath, waveNumber):
+def readWave3Data(basePath):
+	waveNumber=3
 	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
 	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
 	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 	
-	df = w3Core[["heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hegenh",
-				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm" ]]
-	df["memtotb"] = w3Drv.ix[:,"memtotb"]
-	df["totwq10_bu_s"] = w3FinDrv.ix[:, "totwq10_bu_s"]
+
+	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
+
+	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hegenh",
+				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+	df = df [col_list] 
 
 
 
@@ -93,14 +97,105 @@ def readWaveData(basePath, waveNumber):
 
 	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
 
-	df = df.ix[0:50,:]
+
+	df = df.rename(columns = {'hegenh':'hehelf'})
+	# df = df.ix[0:50,:]
 	return df
 
-def readData():
-	dfw3 = readWaveData(basePath , 3)
-	dfw4 = readWaveData(basePath , 4)
-	dfw5 = readWaveData(basePath , 5)
 
+
+def readWave4Data(basePath):
+	waveNumber=4
+	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	
+	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
+
+	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hehelf",
+				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+	df = df [col_list] 
+
+
+
+	df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
+	df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
+	df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
+
+	df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
+	df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
+	df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
+	df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
+
+	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
+	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
+	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
+	df["scako"] = df["scako"].apply(preProcessCovariates)
+	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
+	df["indager"] = df["indager"].apply(preProcessCovariates)
+	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
+	df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
+	
+
+	df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
+
+	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
+
+	# df = df.ix[0:50,:]
+	return df
+
+
+def readWave5Data(basePath):
+	waveNumber=5
+	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	
+	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
+
+	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hehelf",
+				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+	df = df [col_list] 
+
+
+
+	df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
+	df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
+	df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
+
+	df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
+	df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
+	df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
+	df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
+
+	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
+	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
+	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
+	df["scako"] = df["scako"].apply(preProcessCovariates)
+	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
+	df["indager"] = df["indager"].apply(preProcessCovariates)
+	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
+	df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
+	
+
+	df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
+
+	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
+
+	# df = df.ix[0:50,:]
+	return df
+
+
+def readData():
+	df3 = readWave3Data(basePath)
+	df4 = readWave4Data(basePath)
+	df5 = readWave5Data(basePath)
+
+	df34 = pd.merge(df3, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
+	df345 = pd.merge(df34, df5, how='inner', on=['idauniq'],suffixes=('_4', '_5'))
+	return df345
 
 if __name__ == "__main__":
 	
