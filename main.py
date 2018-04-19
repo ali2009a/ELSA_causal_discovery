@@ -197,6 +197,47 @@ def readData():
 	df345 = pd.merge(df34, df5, how='inner', on=['idauniq'],suffixes=('_4', '_5'))
 	return df345
 
+
+def computeMemIndexChange(row):
+	return row["memtotb_4"] - row["memtotb_3"]
+
+
+def computeDistance(row1,row2):
+	
+
+	distance = abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+			   abs(row1["indager"] - row2["indager"])  +
+
+def mathcingPatients():
+	df = readData()
+	df= df.dropna(axis=0, how="any", subset = ["memtotb_3, memtotb_4"])
+	df["memtotChangeW4"] = df.apply(computeMemIndexChange,axis=1)
+	treatmentIndexes = df.index[df["heactb_3"] == 1].tolist()
+	controlIndexes = df.index[df["heactb_3"] == 0].tolist()	
+
+	numTreat = len(treatmentIndexes)
+	numControl = len(controlIndexes)
+	C = np.zeros(shape = (numTreat, numControl))
+	for i in range(numTreat):
+		for j in range(numControl):
+			C[i,j] = computeDistance(df.loc[treatmentIndexes[i]], df.loc[controlIndexes[j]])
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
 	
 	print a
