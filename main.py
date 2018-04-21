@@ -222,8 +222,10 @@ def readData():
 	return df345
 
 
-def computeMemIndexChange(row):
-	return row["memtotb_4"] - row["memtotb_3"]
+def computeMemIndexChange(row, waveNumber):
+	memtotVarCur = "memtotb_{}".format(waveNumber) 
+	memtotVarPrev = "memtotb_{}".format(waveNumber-1)
+	return row[memtotVarCur] - row[memtotVarPrev]
 
 
 def normalizeData(df):
@@ -237,22 +239,38 @@ def normalizeData(df):
 def computeDistance(row1,row2):
 	return np.linalg.norm(row1-row2)
 
-def ComputeCostMatrix():
-	start_time = time.time()
 
-	df = readData()
+def preProcessData(df):
 	df = normalizeData(df)
 	df= df.dropna(axis=0, how="any")
-	df["memtotChangeW4"] = df.apply(computeMemIndexChange,axis=1)
 
-	print("--- loading and preparing data: %s seconds ---" % (time.time() - start_time))
-	start_time = time.time()
-
-	treatmentIndexes = df.index[df["heacta_4"] == 1].tolist()
-	controlIndexes = df.index[df["heacta_4"] == 0].tolist()	
+	df["memtotChangeW4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
+	df["memtotChangeW5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	return df
 
 
-	indVariable= "heacta"
+def getTreatmentGroups(df, indVariable, waveNumber):
+	varCurrWave = "{}_{}".format(indVariable, waveNumber)
+	varPrevWave = "{}_{}".format(indVariable, waveNumber-1)
+
+	treatmentIndexes = df.index[df[varCurrWave] == 1].tolist()
+	controlIndexes = df.index[df[varCurrWave] == 0].tolist()	
+	
+	for i in treatmentIndexes:
+		if df.loc[i][varPrevWave]==1:
+			treatmentIndexes.remove(i)
+
+	for i in controlIndexes:
+		if df.loc[i][varPrevWave]==1:
+			controlIndexes.remove(i)
+
+	return [controlIndexes[0:100], treatmentIndexes[0:100]]
+
+
+def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
+	controlIndexes = treatmentGroups[0]
+	treatmentIndexes = treatmentGroups[1]
+
 	cols = df.columns.tolist()
 	cols.remove('idauniq')
 	waveNumber=4
@@ -262,11 +280,7 @@ def ComputeCostMatrix():
 		if (re.match(pattern, colName) and not (indVariable in colName)):
 			confounders.append(colName)
 
-
 	confDF = df[confounders]
-
-	treatmentIndexes = treatmentIndexes[0:100]
-	controlIndexes = controlIndexes[0:100]
 
 	numTreat = len(treatmentIndexes)
 	numControl = len(controlIndexes)
@@ -275,31 +289,53 @@ def ComputeCostMatrix():
 		for j in range(numControl):
 			C[i,j] = computeDistance(confDF.loc[treatmentIndexes[i]].values, confDF.loc[controlIndexes[j]].values)
 
-
-	print("--- computing cost matrix: %s seconds ---" % (time.time() - start_time))	
-	start_time = time.time()
+	return C
 
 
+def performMatching(C):
 	m = Munkres()
 	indexes = m.compute(C)
-	memtotT = [  df.loc[treatmentIndexes[i[0]]]["memtotChangeW4"]  for i in indexes]
-	memtotC = [  df.loc[controlIndexes[i[1]]]["memtotChangeW4"]  for i in indexes]
+	return indexes
 
-	# memtotT = df.loc[treatmentIndexes]["memtotChangeW4"]
-	# memtotC = df.loc[controlIndexes]["memtotChangeW4"]
+def getTargetValues(df, treatmentGroups, indexes, waveNumber):
+	memTotChangeVar = "memtotChangeW{}".format(waveNumber)
+	controlIndexes = treatmentGroups[0]
+	treatmentIndexes = treatmentGroups[1]
+	memtotT = [  df.loc[treatmentIndexes[i[0]]][memTotChangeVar]  for i in indexes]
+	memtotC = [  df.loc[controlIndexes[i[1]]][memTotChangeVar]  for i in indexes]
+	return [memtotC, memtotT]
 
+def computePValue(X,Y):
+	res= scipy.stats.wilcoxon(X,Y,"wilcox")
+	pVal = res[1]
+	return pVal
 
-	print("--- matching pairs: %s seconds ---" % (time.time() - start_time))
+def f():
 	start_time = time.time()
 
-	res= scipy.stats.wilcoxon(memtotT,memtotC,"wilcox")
-	pVal = res[1]
-
-	# res = scipy.stats.ttest_ind(memtotC, memtotT)
+	df = readData()
+	df = preProcessData(df)
+	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
+					"scako","heskb"]
+	# indVariables=indVariables[0:3]
+	pVals = {}
+	for indVariable in indVariables:
+		pVals[indVariable] = []
 	
-	print("--- wilcox test: %s seconds ---" % (time.time() - start_time))
-	return [res, C]
+	for indVariable in indVariables:
+		print indVariable
+		for waveNumber in [4,5]:
+			print waveNumber
+			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
+			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
+			matchedPairs = performMatching(C)
+			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 
+			pval = computePValue(targetValues[0], targetValues[1])
+			pVals[indVariable].append(pval)
+
+
+	return pVals
 
 if __name__ == "__main__":
 	print "a"
