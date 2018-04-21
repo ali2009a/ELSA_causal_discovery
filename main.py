@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np 
 import matplotlib.pyplot as plt
 from munkres import Munkres
-import scipy
+import scipy.stats
 import re
+import time
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
 REFUSAL=-9
@@ -38,6 +39,21 @@ def preProcessCovariates(value):
 		return np.nan
 	return value
 
+
+def preProcessAlcohol(value):
+	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
+		(value ==  NOT_APPLICABLE) or (value== SCHD_NOT_APPLICABLE)):
+		return np.nan
+	if (value==1)or (value==2) or (value==3) or (value==4):
+		return 1
+	elif (value==5)or (value==6) or (value==7) or (value==8):
+		return 0
+	else:
+		raise ValueError('Unknow value for alcohol use')
+
+
+
+
 def preProcessWealthDecile(value):
 	if ( (value == NOT_IMPUTED) or (value == NON_SAMPLE) or 
 		(value ==  INST_RESPONDENT)):
@@ -50,8 +66,13 @@ def preProcessToboccoUse(value):
 		return np.nan
 	elif (value == NOT_APPLICABLE):
 		return 0
+	elif (value==0):
+		return 0
+	elif (value>0):
+		return 1
 	else:
-		return value
+		print "value", value
+		raise ValueError('Unknow value for tobocco use')
 
 def preProcessMemIndex(value):
 	if ( (value == REFUSAL) or (value == NOT_ASKED) or (value== SCHD_NOT_APPLICABLE) or 
@@ -88,7 +109,7 @@ def readWave3Data(basePath):
 	df["hegenh"] = df["hegenh"].apply(preProcessCovariates)
 	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
 	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	df["scako"] = df["scako"].apply(preProcessCovariates)
+	df["scako"] = df["scako"].apply(preProcessAlcohol)
 	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
 	df["indager"] = df["indager"].apply(preProcessCovariates)
 	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
@@ -133,7 +154,7 @@ def readWave4Data(basePath):
 	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
 	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
 	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	df["scako"] = df["scako"].apply(preProcessCovariates)
+	df["scako"] = df["scako"].apply(preProcessAlcohol)
 	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
 	df["indager"] = df["indager"].apply(preProcessCovariates)
 	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
@@ -175,7 +196,7 @@ def readWave5Data(basePath):
 	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
 	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
 	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	df["scako"] = df["scako"].apply(preProcessCovariates)
+	df["scako"] = df["scako"].apply(preProcessAlcohol)
 	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
 	df["indager"] = df["indager"].apply(preProcessCovariates)
 	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
@@ -213,52 +234,71 @@ def normalizeData(df):
 	    df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
 	return df
 
-def computeDistance(row1,row2,waveNumber, indVariable):
-	cols = row1.keys().tolist()
-	cols.remove('idauniq')
+def computeDistance(row1,row2):
+	return np.linalg.norm(row1-row2)
 
+def ComputeCostMatrix():
+	start_time = time.time()
+
+	df = readData()
+	df = normalizeData(df)
+	df= df.dropna(axis=0, how="any")
+	df["memtotChangeW4"] = df.apply(computeMemIndexChange,axis=1)
+
+	print("--- loading and preparing data: %s seconds ---" % (time.time() - start_time))
+	start_time = time.time()
+
+	treatmentIndexes = df.index[df["heacta_4"] == 1].tolist()
+	controlIndexes = df.index[df["heacta_4"] == 0].tolist()	
+
+
+	indVariable= "heacta"
+	cols = df.columns.tolist()
+	cols.remove('idauniq')
+	waveNumber=4
 	pattern = r"[a-zA-Z0-9]*_{}_n$".format(waveNumber)
 	confounders = []
 	for colName in cols:
 		if (re.match(pattern, colName) and not (indVariable in colName)):
 			confounders.append(colName)
 
-	cost = 0;
-	for colName in confounders:
-		if (not np.isnan(row1[colName])) and (not np.isnan(row2[colName])):
-			# print row1[colName], row2[colName]
-			cost+= abs(row1[colName] - row2[colName])
-	return cost
 
-def ComputeCostMatrix():
-	df = readData()
-	df = normalizeData(df)
-	df= df.dropna(axis=0, how="any")
-	
-	df["memtotChangeW4"] = df.apply(computeMemIndexChange,axis=1)
-	treatmentIndexes = df.index[df["heacta_3"] == 1].tolist()
-	controlIndexes = df.index[df["heacta_3"] == 0].tolist()	
+	confDF = df[confounders]
 
 	treatmentIndexes = treatmentIndexes[0:100]
-	controlIndexes = controlIndexes[0:200]
+	controlIndexes = controlIndexes[0:100]
 
 	numTreat = len(treatmentIndexes)
 	numControl = len(controlIndexes)
 	C = np.zeros(shape = (numTreat, numControl))
 	for i in range(numTreat):
 		for j in range(numControl):
-			C[i,j] = computeDistance(df.loc[treatmentIndexes[i]], df.loc[controlIndexes[j]],4,"heacta")
+			C[i,j] = computeDistance(confDF.loc[treatmentIndexes[i]].values, confDF.loc[controlIndexes[j]].values)
+
+
+	print("--- computing cost matrix: %s seconds ---" % (time.time() - start_time))	
+	start_time = time.time()
+
 
 	m = Munkres()
 	indexes = m.compute(C)
 	memtotT = [  df.loc[treatmentIndexes[i[0]]]["memtotChangeW4"]  for i in indexes]
 	memtotC = [  df.loc[controlIndexes[i[1]]]["memtotChangeW4"]  for i in indexes]
 
+	# memtotT = df.loc[treatmentIndexes]["memtotChangeW4"]
+	# memtotC = df.loc[controlIndexes]["memtotChangeW4"]
 
-	res= scipy.stats.wilcoxon(T[0],T[1],zero_method-"wilcox")
+
+	print("--- matching pairs: %s seconds ---" % (time.time() - start_time))
+	start_time = time.time()
+
+	res= scipy.stats.wilcoxon(memtotT,memtotC,"wilcox")
 	pVal = res[1]
 
-	return pVal
+	# res = scipy.stats.ttest_ind(memtotC, memtotT)
+	
+	print("--- wilcox test: %s seconds ---" % (time.time() - start_time))
+	return [res, C]
 
 
 if __name__ == "__main__":
