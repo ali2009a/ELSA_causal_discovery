@@ -27,6 +27,15 @@ def preProcessPhysicalActivity(value):
 		return 1
 
 
+def report(df, var):
+	for i in [3,4,5]:
+		print "wave",i
+		print "min", df["{}_{}".format(var, i)].min()
+		print "max", df["{}_{}".format(var, i)].max()
+		print "mean", df["{}_{}".format(var, i)].mean()
+		print "std", df["{}_{}".format(var, i)].std()
+
+
 def preProcessBinaryVariables(value):
 	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
 		(value ==  NOT_APPLICABLE) or (value== SCHD_NOT_APPLICABLE)):
@@ -293,9 +302,19 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 
 
 def performMatching(C):
-	m = Munkres()
-	indexes = m.compute(C)
-	return indexes
+
+	r,c = C.shape
+	with open('matrix.txt', 'w') as f:
+		f.write("{} {}\n".format(r,c))
+		for i in range(0,r):
+			for j in range(0,c):
+				f.write( "{} ".format(C[i][j]))
+			f.write("\n")
+
+	
+	# m = Munkres()
+	# indexes = m.compute(C)
+	# return indexes
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
 	memTotChangeVar = "memtotChangeW{}".format(waveNumber)
@@ -317,7 +336,11 @@ def f():
 	df = preProcessData(df)
 	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
 					"scako","heskb"]
+
+	# indVariables = ["scako"]
+
 	# indVariables=indVariables[0:3]
+	# targetValues = []
 	pVals = {}
 	for indVariable in indVariables:
 		pVals[indVariable] = []
@@ -332,9 +355,7 @@ def f():
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 
 			pval = computePValue(targetValues[0], targetValues[1])
-			pVals[indVariable].append(pval)
-
-
+			pVals[indVariable].append(pval)			
 	return pVals
 
 if __name__ == "__main__":

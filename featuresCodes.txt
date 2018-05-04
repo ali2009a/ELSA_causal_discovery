@@ -24,7 +24,6 @@ derived:
 memtotb: memory index
 
 
-
 derived financial:
 totwq10_bu_s: socioeconimic status
 
