@@ -17,7 +17,7 @@ int main(void)
 
 
 
-	ifstream read("file.txt");
+	ifstream read("matrix.txt");
 	int r,c;
 	read>>r>>c;
 
@@ -42,10 +42,10 @@ int main(void)
 
 	double cost = HungAlgo.Solve(costMatrix, assignment);
 
-	for (unsigned int x = 0; x < costMatrix.size(); x++)
-		std::cout << x << "," << assignment[x] << "\t";
 
-	std::cout << "\ncost: " << cost << std::endl;
+	ofstream write("matching.txt");
+	for ( unsigned int x = 0; x < costMatrix.size(); x++ )
+		write << x << "," << assignment[x] << "\n";
 
 	return 0;
 }

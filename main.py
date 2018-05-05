@@ -5,6 +5,9 @@ from munkres import Munkres
 import scipy.stats
 import re
 import time
+import subprocess
+import os
+
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
 REFUSAL=-9
@@ -273,7 +276,7 @@ def getTreatmentGroups(df, indVariable, waveNumber):
 		if df.loc[i][varPrevWave]==1:
 			controlIndexes.remove(i)
 
-	return [controlIndexes[0:100], treatmentIndexes[0:100]]
+	return [controlIndexes, treatmentIndexes]
 
 
 def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
@@ -301,6 +304,24 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 	return C
 
 
+
+def run_cmd(cmd, working_directory=None):
+	if working_directory!= None:
+		try:
+			output = subprocess.check_output(cmd,shell=True,cwd=working_directory)
+			print "output:"+output
+		except:
+			print "failed:"+cmd
+			# pass
+	else:
+		try:
+			output = subprocess.check_output(cmd,shell=True)
+			print(output)
+		except:
+			print "failed:"+cmd
+			# pass
+
+
 def performMatching(C):
 
 	r,c = C.shape
@@ -311,10 +332,21 @@ def performMatching(C):
 				f.write( "{} ".format(C[i][j]))
 			f.write("\n")
 
-	
+	command = "hungarian/test"
+	run_cmd(command)
+	with open('matching.txt', 'r') as f:
+		indexes = []
+		for line in f:
+			words = line.rstrip('\n').split(',')
+			L = int(words[0])
+			R = int(words[1])
+			if R!= -1:
+				pair = (L,R)
+				indexes.append(pair)
+
 	# m = Munkres()
 	# indexes = m.compute(C)
-	# return indexes
+	return indexes
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
 	memTotChangeVar = "memtotChangeW{}".format(waveNumber)
@@ -328,6 +360,7 @@ def computePValue(X,Y):
 	res= scipy.stats.wilcoxon(X,Y,"wilcox")
 	pVal = res[1]
 	return pVal
+
 
 def f():
 	start_time = time.time()
@@ -355,6 +388,7 @@ def f():
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 
 			pval = computePValue(targetValues[0], targetValues[1])
+			print pVals
 			pVals[indVariable].append(pval)			
 	return pVals
 
