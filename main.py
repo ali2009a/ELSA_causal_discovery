@@ -285,7 +285,6 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 
 	cols = df.columns.tolist()
 	cols.remove('idauniq')
-	waveNumber=4
 	pattern = r"[a-zA-Z0-9]*_{}_n$".format(waveNumber)
 	confounders = []
 	for colName in cols:
@@ -388,8 +387,9 @@ def f():
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 
 			pval = computePValue(targetValues[0], targetValues[1])
-			print pVals
+			print pval
 			pVals[indVariable].append(pval)			
+
 	return pVals
 
 if __name__ == "__main__":
