@@ -24,10 +24,18 @@ def preProcessPhysicalActivity(value):
 	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
 		(value ==  NOT_APPLICABLE)):
 		return np.nan
-	elif ( (value == 3) or (value == 4)):
+	else:
+		return value
+
+
+
+def binarizePhysicalActivity(value):
+	if ( (value == 3) or (value == 4)):
 		return 0
 	elif ( (value == 1) or (value == 2)):
 		return 1
+	elif np.isnan(value):
+		return value
 
 
 def report(df, var):
@@ -56,14 +64,17 @@ def preProcessAlcohol(value):
 	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
 		(value ==  NOT_APPLICABLE) or (value== SCHD_NOT_APPLICABLE)):
 		return np.nan
-	if (value==1)or (value==2) or (value==3) or (value==4):
-		return 1
-	elif (value==5)or (value==6) or (value==7) or (value==8):
-		return 0
 	else:
-		raise ValueError('Unknow value for alcohol use')
+		return value
 
 
+def binarizeAlcohol(value):
+	if (value==1)or (value==2) or (value==3) or (value==4) or (value==5)or (value==6) or (value==7):
+		return 1
+	elif  (value==8):
+		return 0
+	elif np.isnan(value):
+		return value
 
 
 def preProcessWealthDecile(value):
@@ -78,13 +89,17 @@ def preProcessToboccoUse(value):
 		return np.nan
 	elif (value == NOT_APPLICABLE):
 		return 0
-	elif (value==0):
+	else:
+		return value
+
+
+def binarizeToboccoUse(value):
+	if (value==0):
 		return 0
 	elif (value>0):
 		return 1
-	else:
-		print "value", value
-		raise ValueError('Unknow value for tobocco use')
+
+
 
 def preProcessMemIndex(value):
 	if ( (value == REFUSAL) or (value == NOT_ASKED) or (value== SCHD_NOT_APPLICABLE) or 
@@ -92,6 +107,66 @@ def preProcessMemIndex(value):
 		return np.nan
 	else:
 		return value
+
+
+
+def harmonizeData(df):
+	df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
+	df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
+	df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
+
+	df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
+	df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
+	df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
+	df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
+
+	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
+	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
+	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
+	df["scako"] = df["scako"].apply(preProcessAlcohol)
+	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
+	df["indager"] = df["indager"].apply(preProcessCovariates)
+	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
+	df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
+	
+
+	df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
+
+	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
+	return df
+
+
+
+def binarizeData(df):
+	df["heacta"]=df["heacta"].apply(binarizePhysicalActivity)
+	df["heactb"]=df["heactb"].apply(binarizePhysicalActivity)
+	df["heactc"]=df["heactc"].apply(binarizePhysicalActivity)
+	df["scako"] = df["scako"].apply(binarizeAlcohol)
+	df["heskb"] = df["heskb"].apply(binarizeToboccoUse)
+	return df
+
+
+
+def readWave2Data(basePath):
+	waveNumber=2
+	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	
+
+	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
+
+	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hegenh",
+				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+	df = df [col_list] 
+
+	df = df.rename(columns = {'hegenh':'hehelf'})
+	df = harmonizeData(df)
+	df = binarizeData(df)
+	# df = df.ix[0:50,:]
+	return df
+
 
 def readWave3Data(basePath):
 	waveNumber=3
@@ -107,33 +182,9 @@ def readWave3Data(basePath):
 				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
 	df = df [col_list] 
 
-
-
-	df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
-	df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
-	df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
-
-	df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
-	df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
-	df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
-	df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
-
-	df["hegenh"] = df["hegenh"].apply(preProcessCovariates)
-	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
-	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	df["scako"] = df["scako"].apply(preProcessAlcohol)
-	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
-	df["indager"] = df["indager"].apply(preProcessCovariates)
-	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
-	df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
-	
-
-	df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
-
-	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
-
-
 	df = df.rename(columns = {'hegenh':'hehelf'})
+	df = harmonizeData(df)
+	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
 
@@ -152,31 +203,8 @@ def readWave4Data(basePath):
 				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
 	df = df [col_list] 
 
-
-
-	df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
-	df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
-	df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
-
-	df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
-	df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
-	df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
-	df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
-
-	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
-	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
-	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	df["scako"] = df["scako"].apply(preProcessAlcohol)
-	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
-	df["indager"] = df["indager"].apply(preProcessCovariates)
-	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
-	df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
-	
-
-	df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
-
-	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
-
+	df = harmonizeData(df)
+	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
 
@@ -194,31 +222,8 @@ def readWave5Data(basePath):
 				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
 	df = df [col_list] 
 
-
-
-	df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
-	df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
-	df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
-
-	df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
-	df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
-	df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
-	df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
-
-	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
-	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
-	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	df["scako"] = df["scako"].apply(preProcessAlcohol)
-	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
-	df["indager"] = df["indager"].apply(preProcessCovariates)
-	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
-	df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
-	
-
-	df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
-
-	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
-
+	df = harmonizeData(df)
+	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
 
@@ -366,8 +371,10 @@ def f():
 
 	df = readData()
 	df = preProcessData(df)
-	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
-					"scako","heskb"]
+	# indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
+	# 				"scako","heskb"]
+
+	indVariables = ["scako"]
 
 	# indVariables = ["scako"]
 
@@ -379,7 +386,7 @@ def f():
 	
 	for indVariable in indVariables:
 		print indVariable
-		for waveNumber in [4,5]:
+		for waveNumber in [4,5,6]:
 			print waveNumber
 			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
