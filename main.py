@@ -7,6 +7,13 @@ import re
 import time
 import subprocess
 import os
+from features import *
+
+
+trtmntVar = set(["heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","scako","heskb"])
+confounders = set(["scfrda","scfrdg","indager", "hegenh","dhsex,scfrdm","totwq10_bu_s"])
+targetVar = set(["memtotb"])
+allVar = trtmntVar|confounders|targetVar
 
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
@@ -20,6 +27,7 @@ NOT_ASKED=-3
 NOT_IMPUTED = -999.0
 NON_SAMPLE = -998.0
 INST_RESPONDENT=  -995.0
+
 def preProcessPhysicalActivity(value):
 	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
 		(value ==  NOT_APPLICABLE)):
@@ -111,28 +119,33 @@ def preProcessMemIndex(value):
 
 
 def harmonizeData(df):
-	df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
-	df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
-	df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
+	# df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
+	# df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
+	# df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
 
-	df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
-	df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
-	df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
-	df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
+	# df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
+	# df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
+	# df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
+	# df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
 
-	df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
-	df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
-	df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	df["scako"] = df["scako"].apply(preProcessAlcohol)
-	df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
-	df["indager"] = df["indager"].apply(preProcessCovariates)
-	df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
-	df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
+	# df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
+	# df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
+	# df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
+	# df["scako"] = df["scako"].apply(preProcessAlcohol)
+	# df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
+	# df["indager"] = df["indager"].apply(preProcessCovariates)
+	# df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
+	# df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
 	
 
-	df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
+	# df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
 
-	df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
+	# df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
+
+
+	for var in allVar:
+		df[var] = df[var].apply((globals()[var].harmonize))
+	
 	return df
 
 
@@ -252,6 +265,7 @@ def normalizeData(df):
 	    col_norm = col + '_n'
 	    df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
 	return df
+
 
 def computeDistance(row1,row2):
 	return np.linalg.norm(row1-row2)
