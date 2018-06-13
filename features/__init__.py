@@ -1,8 +1,6 @@
 
 import os
 from os.path import basename
-from constants import *
-import numpy as np
 currentPath = os.path.dirname(__file__)
 print os.listdir(currentPath)
 print currentPath

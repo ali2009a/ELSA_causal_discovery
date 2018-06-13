@@ -11,7 +11,7 @@ from features import *
 
 
 trtmntVar = set(["heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","scako","heskb"])
-confounders = set(["scfrda","scfrdg","indager", "hegenh","dhsex,scfrdm","totwq10_bu_s"])
+confounders = set(["scfrda","scfrdg","indager", "hehelf","dhsex","scfrdm","totwq10_bu_s"])
 targetVar = set(["memtotb"])
 allVar = trtmntVar|confounders|targetVar
 
@@ -28,23 +28,6 @@ NOT_IMPUTED = -999.0
 NON_SAMPLE = -998.0
 INST_RESPONDENT=  -995.0
 
-def preProcessPhysicalActivity(value):
-	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
-		(value ==  NOT_APPLICABLE)):
-		return np.nan
-	else:
-		return value
-
-
-
-def binarizePhysicalActivity(value):
-	if ( (value == 3) or (value == 4)):
-		return 0
-	elif ( (value == 1) or (value == 2)):
-		return 1
-	elif np.isnan(value):
-		return value
-
 
 def report(df, var):
 	for i in [3,4,5]:
@@ -54,109 +37,36 @@ def report(df, var):
 		print "mean", df["{}_{}".format(var, i)].mean()
 		print "std", df["{}_{}".format(var, i)].std()
 
-
-def preProcessBinaryVariables(value):
-	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
-		(value ==  NOT_APPLICABLE) or (value== SCHD_NOT_APPLICABLE)):
-		return np.nan
-	return value
-
-def preProcessCovariates(value):
-	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
-		(value ==  NOT_APPLICABLE) or (value== SCHD_NOT_APPLICABLE)):
-		return np.nan
-	return value
-
-
-def preProcessAlcohol(value):
-	if ( (value == REFUSAL) or (value == DONT_KNOW) or 
-		(value ==  NOT_APPLICABLE) or (value== SCHD_NOT_APPLICABLE)):
-		return np.nan
-	else:
-		return value
-
-
-def binarizeAlcohol(value):
-	if (value==1)or (value==2) or (value==3) or (value==4) or (value==5)or (value==6) or (value==7):
-		return 1
-	elif  (value==8):
-		return 0
-	elif np.isnan(value):
-		return value
-
-
-def preProcessWealthDecile(value):
-	if ( (value == NOT_IMPUTED) or (value == NON_SAMPLE) or 
-		(value ==  INST_RESPONDENT)):
-		return np.nan
-	return value
-
-
-def preProcessToboccoUse(value):
-	if ( (value == REFUSAL) or (value == DONT_KNOW) or (value== SCHD_NOT_APPLICABLE)):
-		return np.nan
-	elif (value == NOT_APPLICABLE):
-		return 0
-	else:
-		return value
-
-
-def binarizeToboccoUse(value):
-	if (value==0):
-		return 0
-	elif (value>0):
-		return 1
-
-
-
-def preProcessMemIndex(value):
-	if ( (value == REFUSAL) or (value == NOT_ASKED) or (value== SCHD_NOT_APPLICABLE) or 
-		(value == NOT_APPLICABLE) or (value == -7)):
-		return np.nan
-	else:
-		return value
-
-
-
 def harmonizeData(df):
-	# df["heacta"]=df["heacta"].apply(preProcessPhysicalActivity)
-	# df["heactb"]=df["heactb"].apply(preProcessPhysicalActivity)
-	# df["heactc"]=df["heactc"].apply(preProcessPhysicalActivity)
-
-	# df["scorg03"] = df["scorg03"].apply(preProcessBinaryVariables)
-	# df["scorg05"] = df["scorg05"].apply(preProcessBinaryVariables)
-	# df["scorg06"] = df["scorg06"].apply(preProcessBinaryVariables)
-	# df["scorg07"] = df["scorg07"].apply(preProcessBinaryVariables)
-
-	# df["hehelf"] = df["hehelf"].apply(preProcessCovariates)
-	# df["scfrda"] = df["scfrda"].apply(preProcessCovariates)
-	# df["scfrdg"] = df["scfrdg"].apply(preProcessCovariates)
-	# df["scako"] = df["scako"].apply(preProcessAlcohol)
-	# df["heskb"] = df["heskb"].apply(preProcessToboccoUse)
-	# df["indager"] = df["indager"].apply(preProcessCovariates)
-	# df["dhsex"] = df["dhsex"].apply(preProcessCovariates)
-	# df["scfrdm"] = df["scfrdm"].apply(preProcessCovariates)
-	
-
-	# df["totwq10_bu_s"] = df["totwq10_bu_s"].apply(preProcessWealthDecile)
-
-	# df["memtotb"] = df["memtotb"].apply(preProcessMemIndex)
-
-
+	print allVar
 	for var in allVar:
 		df[var] = df[var].apply((globals()[var].harmonize))
 	
+
 	return df
 
 
 
 def binarizeData(df):
-	df["heacta"]=df["heacta"].apply(binarizePhysicalActivity)
-	df["heactb"]=df["heactb"].apply(binarizePhysicalActivity)
-	df["heactc"]=df["heactc"].apply(binarizePhysicalActivity)
-	df["scako"] = df["scako"].apply(binarizeAlcohol)
-	df["heskb"] = df["heskb"].apply(binarizeToboccoUse)
+	pattern = r"[a-zA-Z0-9]*_n$"
+	cols = list(df.columns)
+	cols.remove('idauniq')
+	for var in cols:
+		if not re.match(pattern, var):  
+		    col_bin = var + '_b'
+		    df[col_bin] = df[var].apply((globals()[var].binarize))
 	return df
+
+
+def normalizeData(df):
+	cols = list(df.columns)
+	cols.remove('idauniq')
+	for col in cols:
+	    col_norm = col + '_n'
+	    df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
+	return df
+
+
 
 
 
@@ -246,6 +156,7 @@ def readData():
 	df4 = readWave4Data(basePath)
 	df5 = readWave5Data(basePath)
 
+	print df3
 	df34 = pd.merge(df3, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
 	df345 = pd.merge(df34, df5, how='inner', on=['idauniq'],suffixes=('_4', '_5'))
 
@@ -258,13 +169,7 @@ def computeMemIndexChange(row, waveNumber):
 	return row[memtotVarCur] - row[memtotVarPrev]
 
 
-def normalizeData(df):
-	cols = list(df.columns)
-	cols.remove('idauniq')
-	for col in cols:
-	    col_norm = col + '_n'
-	    df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
-	return df
+
 
 
 def computeDistance(row1,row2):
@@ -281,8 +186,8 @@ def preProcessData(df):
 
 
 def getTreatmentGroups(df, indVariable, waveNumber):
-	varCurrWave = "{}_{}".format(indVariable, waveNumber)
-	varPrevWave = "{}_{}".format(indVariable, waveNumber-1)
+	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
+	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
 
 	treatmentIndexes = df.index[df[varCurrWave] == 1].tolist()
 	controlIndexes = df.index[df[varCurrWave] == 0].tolist()	
@@ -295,7 +200,7 @@ def getTreatmentGroups(df, indVariable, waveNumber):
 		if df.loc[i][varPrevWave]==1:
 			controlIndexes.remove(i)
 
-	return [controlIndexes, treatmentIndexes]
+	return [controlIndexes[0:50], treatmentIndexes[0:50]]
 
 
 def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
@@ -388,7 +293,7 @@ def f():
 	# indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
 	# 				"scako","heskb"]
 
-	indVariables = ["scako"]
+	indVariables = ["heacta", "heactb", "heactc", "scako","heskb"]
 
 	# indVariables = ["scako"]
 
@@ -400,7 +305,7 @@ def f():
 	
 	for indVariable in indVariables:
 		print indVariable
-		for waveNumber in [4,5,6]:
+		for waveNumber in [4]:
 			print waveNumber
 			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
