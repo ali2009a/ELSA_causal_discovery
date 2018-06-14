@@ -42,13 +42,15 @@ def harmonizeData(df):
 	for var in allVar:
 		df[var] = df[var].apply((globals()[var].harmonize))
 	
+	# for var in ["heacta", "heactb", "heactc", "scako", "heskb"]:
+	#     df[var] = df[var].apply((globals()[var].binarize))
 
 	return df
 
 
 
 def binarizeData(df):
-	pattern = r"[a-zA-Z0-9]*_n$"
+	pattern = r"[a-zA-Z0-9_]*_n$"
 	cols = list(df.columns)
 	cols.remove('idauniq')
 	for var in cols:
@@ -86,6 +88,7 @@ def readWave2Data(basePath):
 
 	df = df.rename(columns = {'hegenh':'hehelf'})
 	df = harmonizeData(df)
+	df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -107,6 +110,7 @@ def readWave3Data(basePath):
 
 	df = df.rename(columns = {'hegenh':'hehelf'})
 	df = harmonizeData(df)
+	df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -127,6 +131,7 @@ def readWave4Data(basePath):
 	df = df [col_list] 
 
 	df = harmonizeData(df)
+	df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -146,6 +151,7 @@ def readWave5Data(basePath):
 	df = df [col_list] 
 
 	df = harmonizeData(df)
+	df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -177,11 +183,11 @@ def computeDistance(row1,row2):
 
 
 def preProcessData(df):
-	df = normalizeData(df)
 	df= df.dropna(axis=0, how="any")
-
 	df["memtotChangeW4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
 	df["memtotChangeW5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	df["memtotb_n_4"] = df["memtotb_n_3"]
+	df["memtotb_n_5"] = df["memtotb_n_4"]
 	return df
 
 
@@ -200,7 +206,7 @@ def getTreatmentGroups(df, indVariable, waveNumber):
 		if df.loc[i][varPrevWave]==1:
 			controlIndexes.remove(i)
 
-	return [controlIndexes[0:50], treatmentIndexes[0:50]]
+	return [controlIndexes, treatmentIndexes]
 
 
 def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
@@ -209,7 +215,7 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 
 	cols = df.columns.tolist()
 	cols.remove('idauniq')
-	pattern = r"[a-zA-Z0-9]*_{}_n$".format(waveNumber)
+	pattern = r"[a-zA-Z0-9]*_n_{}$".format(waveNumber)
 	confounders = []
 	for colName in cols:
 		if (re.match(pattern, colName) and not (indVariable in colName)):
@@ -290,10 +296,10 @@ def f():
 
 	df = readData()
 	df = preProcessData(df)
-	# indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
-	# 				"scako","heskb"]
+	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
+					"scako","heskb"]
 
-	indVariables = ["heacta", "heactb", "heactc", "scako","heskb"]
+	# indVariables = ["heacta"]
 
 	# indVariables = ["scako"]
 
@@ -305,7 +311,7 @@ def f():
 	
 	for indVariable in indVariables:
 		print indVariable
-		for waveNumber in [4]:
+		for waveNumber in [4,5]:
 			print waveNumber
 			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
