@@ -10,10 +10,10 @@ import os
 from features import *
 
 
-trtmntVar = set(["heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","scako","heskb"])
-confounders = set(["scfrda","scfrdg","indager", "hehelf","dhsex","scfrdm","totwq10_bu_s"])
+trtmntVar = set(["scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","scako","heskb"])
+confoundersVar = set(["scfrda","scfrdg","indager", "hehelf","dhsex","totwq10_bu_s"])
 targetVar = set(["memtotb"])
-allVar = trtmntVar|confounders|targetVar
+allVar = trtmntVar|confoundersVar|targetVar
 
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
@@ -161,8 +161,6 @@ def readData():
 	df3 = readWave3Data(basePath)
 	df4 = readWave4Data(basePath)
 	df5 = readWave5Data(basePath)
-
-	print df3
 	df34 = pd.merge(df3, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
 	df345 = pd.merge(df34, df5, how='inner', on=['idauniq'],suffixes=('_4', '_5'))
 
@@ -179,11 +177,13 @@ def computeMemIndexChange(row, waveNumber):
 
 
 def computeDistance(row1,row2):
-	return np.linalg.norm(row1-row2)
+	diff  = row1 - row2
+	diff = diff[~np.isnan(diff)]
+	return np.linalg.norm(diff)
 
 
 def preProcessData(df):
-	df= df.dropna(axis=0, how="any")
+	# df= df.dropna(axis=0, how="any")
 	df["memtotChangeW4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
 	df["memtotChangeW5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
 	df["memtotb_n_4"] = df["memtotb_n_3"]
@@ -199,13 +199,15 @@ def getTreatmentGroups(df, indVariable, waveNumber):
 	controlIndexes = df.index[df[varCurrWave] == 0].tolist()	
 	
 	for i in treatmentIndexes:
-		if df.loc[i][varPrevWave]==1:
+		if (df.loc[i][varPrevWave]==1) or (df.loc[i][varPrevWave]==np.nan):
 			treatmentIndexes.remove(i)
 
 	for i in controlIndexes:
-		if df.loc[i][varPrevWave]==1:
+		if df.loc[i][varPrevWave]==1 or (df.loc[i][varPrevWave]==np.nan):
 			controlIndexes.remove(i)
-
+	print "G"
+	print len(controlIndexes)
+	print len(treatmentIndexes)
 	return [controlIndexes, treatmentIndexes]
 
 
@@ -296,8 +298,7 @@ def f():
 
 	df = readData()
 	df = preProcessData(df)
-	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
-					"scako","heskb"]
+	indVariables = ["scfrdg"]
 
 	# indVariables = ["heacta"]
 
@@ -310,6 +311,7 @@ def f():
 		pVals[indVariable] = []
 	
 	for indVariable in indVariables:
+		s =time.time()
 		print indVariable
 		for waveNumber in [4,5]:
 			print waveNumber
@@ -320,7 +322,9 @@ def f():
 
 			pval = computePValue(targetValues[0], targetValues[1])
 			print pval
-			pVals[indVariable].append(pval)			
+			pVals[indVariable].append(pval)	
+		elapsedTime = time.time()-s
+		print "processing time:", elapsedTime/60		
 
 	return pVals
 

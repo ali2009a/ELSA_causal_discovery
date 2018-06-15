@@ -8,4 +8,9 @@ def harmonize(value):
 	return value
 
 def binarize(value):
-	return value
+	if (value == 0):
+		return 0
+	elif (value>=5):
+		return 1
+	else:
+		return 2
