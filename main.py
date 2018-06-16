@@ -184,6 +184,7 @@ def computeDistance(row1,row2):
 
 def preProcessData(df):
 	# df= df.dropna(axis=0, how="any")
+	df= df.dropna(subset=["memtotb_3","memtotb_4","memtotb_5"])
 	df["memtotChangeW4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
 	df["memtotChangeW5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
 	df["memtotb_n_4"] = df["memtotb_n_3"]
@@ -298,7 +299,8 @@ def f():
 
 	df = readData()
 	df = preProcessData(df)
-	indVariables = ["scfrdg"]
+	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
+					"scako","heskb"]
 
 	# indVariables = ["heacta"]
 
