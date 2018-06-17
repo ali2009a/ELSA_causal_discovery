@@ -300,7 +300,7 @@ def f():
 	df = readData()
 	df = preProcessData(df)
 	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
-					"scako","heskb"]
+					"scako","heskb", "scfrdm", "scfrdg" , "scfrda"]
 
 	# indVariables = ["heacta"]
 
@@ -323,7 +323,7 @@ def f():
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 
 			pval = computePValue(targetValues[0], targetValues[1])
-			print pval
+			print "pval", pval
 			pVals[indVariable].append(pval)	
 		elapsedTime = time.time()-s
 		print "processing time:", elapsedTime/60		
