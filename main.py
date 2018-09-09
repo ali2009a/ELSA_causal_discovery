@@ -13,6 +13,7 @@ from features import *
 trtmntVar = set(["scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","scako","heskb"])
 confoundersVar = set(["scfrda","scfrdg","indager", "hehelf","dhsex","totwq10_bu_s"])
 targetVar = set(["memtotb"])
+auxVar = set(["cfdscr","cflisen", "cflisd","cfdatd"])
 allVar = trtmntVar|confoundersVar|targetVar
 
 
@@ -39,7 +40,7 @@ def report(df, var):
 
 def harmonizeData(df):
 	print allVar
-	for var in allVar:
+	for var in (trtmntVar|confoundersVar):
 		df[var] = df[var].apply((globals()[var].harmonize))
 	
 	# for var in ["heacta", "heactb", "heactc", "scako", "heskb"]:
@@ -51,9 +52,9 @@ def harmonizeData(df):
 
 def binarizeData(df):
 	pattern = r"[a-zA-Z0-9_]*_n$"
-	cols = list(df.columns)
-	cols.remove('idauniq')
-	for var in cols:
+	# cols = list(df.columns)
+	# cols.remove('idauniq')
+	for var in trtmntVar:
 		if not re.match(pattern, var):  
 		    col_bin = var + '_b'
 		    df[col_bin] = df[var].apply((globals()[var].binarize))
@@ -70,8 +71,6 @@ def normalizeData(df):
 
 
 
-
-
 def readWave2Data(basePath):
 	waveNumber=2
 	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
@@ -84,6 +83,9 @@ def readWave2Data(basePath):
 
 	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hegenh",
 				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+
+
+
 	df = df [col_list] 
 
 	df = df.rename(columns = {'hegenh':'hehelf'})
@@ -157,6 +159,51 @@ def readWave5Data(basePath):
 	return df
 
 
+def readWave6Data(basePath):
+	waveNumber=3
+	w3Core = pd.read_stata("{}/wave_{}_elsa_data_v2.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w6Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w6FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	
+
+	s1 = pd.merge(w6Core, w6Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, w6FinDrv, how='inner', on=['idauniq'])
+
+	# df = df.rename(columns = {'hegenh':'hehelf'})
+	df = df.rename(columns = {'HeActa':'heacta'})
+	df = df.rename(columns = {'HeActb':'heactb'})
+	df = df.rename(columns = {'HeActc':'heactc'})
+	df = df.rename(columns = {'Hehelf':'hehelf'})
+	df = df.rename(columns = {'HeSkb':'heskb'})
+	df = df.rename(columns = {'DhSex':'dhsex'})
+
+	df = df.rename(columns = {'CfDScr':'cfdscr'})
+	df = df.rename(columns = {'CfLisEn':'cflisen'})
+	df = df.rename(columns = {'CfLisD':'cflisd'})
+	df = df.rename(columns = {'CfDatD':'cfdatd'})
+
+
+
+	# col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hehelf",
+	# 			 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s",  ]
+	
+	col_list = ["idauniq"] + trtmntVar + confoundersVar + auxVar; 
+	df = df [col_list] 
+
+	df = addMemIndex(df)
+	df = removeAuxVars(df)
+
+	df = harmonizeData(df)
+	df = normalizeData(df)
+	df = binarizeData(df)
+	# df = df.ix[0:50,:]
+	return df
+
+def removeAuxVars(df):
+	df= df.drop(list(auxVar),axis=1)
+	return df
+
+
 def readData():
 	df3 = readWave3Data(basePath)
 	df4 = readWave4Data(basePath)
@@ -166,6 +213,10 @@ def readData():
 
 	return df345
 
+def addMemIndex(df):
+	df["memIndex"] = df.apply(computeMemIndex, axis=1)
+	return df
+
 
 def computeMemIndexChange(row, waveNumber):
 	memtotVarCur = "memtotb_{}".format(waveNumber) 
@@ -174,6 +225,19 @@ def computeMemIndexChange(row, waveNumber):
 
 
 
+def computeMemIndex(row):
+	if row["cfdatd"] == REFUSAL:
+		return np.nan
+	if row ["cflisd"] == DONT_KNOW:
+		row ["cflisd"] = 0
+
+	if row ["cflisen"] == DONT_KNOW:
+		row ["cflisen"] = 0
+
+	if (row ["cfdscr"]<0) or (row ["cflisd"]<0) or (row ["cflisen"]<0):
+		return np.nan
+	else:
+		return row["cfdscr"] + row["cflisd"] + row["cflisen"]
 
 
 def computeDistance(row1,row2):
@@ -187,8 +251,10 @@ def preProcessData(df):
 	df= df.dropna(subset=["memtotb_3","memtotb_4","memtotb_5"])
 	df["memtotChangeW4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
 	df["memtotChangeW5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
-	df["memtotb_n_4"] = df["memtotb_n_3"]
+	
 	df["memtotb_n_5"] = df["memtotb_n_4"]
+	df["memtotb_n_4"] = df["memtotb_n_3"]
+	
 	return df
 
 
