@@ -160,8 +160,8 @@ def readWave5Data(basePath):
 
 
 def readWave6Data(basePath):
-	waveNumber=3
-	w3Core = pd.read_stata("{}/wave_{}_elsa_data_v2.dta".format(basePath, waveNumber),convert_categoricals=False)
+	waveNumber=6
+	w6Core = pd.read_stata("{}/wave_{}_elsa_data_v2.dta".format(basePath, waveNumber),convert_categoricals=False)
 	w6Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
 	w6FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 	
@@ -187,7 +187,7 @@ def readWave6Data(basePath):
 	# col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hehelf",
 	# 			 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s",  ]
 	
-	col_list = ["idauniq"] + trtmntVar + confoundersVar + auxVar; 
+	col_list = ["idauniq"] + list(trtmntVar) + list(confoundersVar) + list(auxVar); 
 	df = df [col_list] 
 
 	df = addMemIndex(df)
