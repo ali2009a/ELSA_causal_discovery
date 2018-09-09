@@ -9,8 +9,8 @@ import subprocess
 import os
 from features import *
 
-
-trtmntVar = set(["scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","scako","heskb"])
+#"scako" was removed because wave 1 had different scale
+trtmntVar = set(["scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"])
 confoundersVar = set(["scfrda","scfrdg","indager", "hehelf","dhsex","totwq10_bu_s"])
 targetVar = set(["memtotb"])
 auxVar = set(["cfdscr","cflisen", "cflisd","cfdatd"])
@@ -28,6 +28,23 @@ NOT_ASKED=-3
 NOT_IMPUTED = -999.0
 NON_SAMPLE = -998.0
 INST_RESPONDENT=  -995.0
+
+
+def returnSample(df):
+	df = df.sample(20)
+	varNames = ["heactb","scfrdm","scorg06"]
+	col_list = []
+	
+		# for num in range(1,8):
+			
+
+	for num in range(1,8):
+		
+		for var in varNames:
+			col_list.append("{}_b_{}".format(var,num))
+		col_list.append( "memIndex_{}".format(num))
+			
+	return df[col_list]
 
 
 def report(df, var):
@@ -69,26 +86,68 @@ def normalizeData(df):
 	    df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
 	return df
 
+def readWave1Data(basePath):
+	waveNumber=1
+	Core = pd.read_stata("{}/wave_1_core_data_v3.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Drv =  pd.read_stata("{}/wave_1_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	FinDrv = pd.read_stata('{}/wave_1_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	
+	s1 = pd.merge(Core, Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, FinDrv, how='inner', on=['idauniq'])
+	
+	df = df.rename(columns = {'scorg3':'scorg03'})
+	df = df.rename(columns = {'scorg5':'scorg05'})
+	df = df.rename(columns = {'scorg6':'scorg06'})
+	df = df.rename(columns = {'scorg7':'scorg07'})
+	
+	col_list = ["idauniq"] + list(trtmntVar) + list(confoundersVar) + list(auxVar); 
+	df = df [col_list] 
+
+	df = addMemIndex(df)
+	df = removeAuxVars(df)
+
+	df = harmonizeData(df)
+	df = normalizeData(df)
+	df = binarizeData(df)
+	# df= addSuffix(df,1)
+	# df = df.ix[0:50,:]
+	return df
+
+def addSuffix(df, num):
+	for var in (trtmntVar|confoundersVar|targetVar):
+		newName = "{}_{}".format(var,num)
+		df = df.rename(columns = {var:newName})
+	return df
 
 
 def readWave2Data(basePath):
 	waveNumber=2
-	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	Core = pd.read_stata("{}/wave_2_core_data_v4.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Drv =  pd.read_stata("{}/wave_2_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 	
 
-	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
-	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
+	s1 = pd.merge(Core, Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, FinDrv, how='inner', on=['idauniq'])
 
-	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hegenh",
-				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+	df = df.rename(columns = {'HeActa':'heacta'})
+	df = df.rename(columns = {'HeActb':'heactb'})
+	df = df.rename(columns = {'HeActc':'heactc'})
+	df = df.rename(columns = {'Hehelf':'hehelf'})
+	df = df.rename(columns = {'HeSkb':'heskb'})
+	df = df.rename(columns = {'DhSex':'dhsex'})
 
+	df = df.rename(columns = {'CfDScr':'cfdscr'})
+	df = df.rename(columns = {'CfLisEn':'cflisen'})
+	df = df.rename(columns = {'CfLisD':'cflisd'})
+	df = df.rename(columns = {'CfDatD':'cfdatd'})
 
-
+	col_list = ["idauniq"] + list(trtmntVar) + list(confoundersVar) + list(auxVar); 
 	df = df [col_list] 
 
-	df = df.rename(columns = {'hegenh':'hehelf'})
+	df = addMemIndex(df)
+	df = removeAuxVars(df)
+
 	df = harmonizeData(df)
 	df = normalizeData(df)
 	df = binarizeData(df)
@@ -98,19 +157,21 @@ def readWave2Data(basePath):
 
 def readWave3Data(basePath):
 	waveNumber=3
-	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 	
 
-	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
-	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
-
-	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hegenh",
-				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
-	df = df [col_list] 
+	s1 = pd.merge(Core, Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, FinDrv, how='inner', on=['idauniq'])
 
 	df = df.rename(columns = {'hegenh':'hehelf'})
+	col_list = ["idauniq"] + list(trtmntVar) + list(confoundersVar) + list(auxVar); 
+	df = df [col_list] 
+
+	df = addMemIndex(df)
+	df = removeAuxVars(df)
+
 	df = harmonizeData(df)
 	df = normalizeData(df)
 	df = binarizeData(df)
@@ -121,16 +182,18 @@ def readWave3Data(basePath):
 
 def readWave4Data(basePath):
 	waveNumber=4
-	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 	
-	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
-	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
+	s1 = pd.merge(Core, Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, FinDrv, how='inner', on=['idauniq'])
 
-	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hehelf",
-				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+	col_list = ["idauniq"] + list(trtmntVar) + list(confoundersVar) + list(auxVar); 
 	df = df [col_list] 
+
+	df = addMemIndex(df)
+	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
 	df = normalizeData(df)
@@ -141,16 +204,18 @@ def readWave4Data(basePath):
 
 def readWave5Data(basePath):
 	waveNumber=5
-	w3Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
-	w3FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
-	
-	s1 = pd.merge(w3Core, w3Drv, how='inner', on=['idauniq'])
-	df = pd.merge(s1, w3FinDrv, how='inner', on=['idauniq'])
+	Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 
-	col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hehelf",
-				 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s" ]
+	s1 = pd.merge(Core, Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, FinDrv, how='inner', on=['idauniq'])
+
+	col_list = ["idauniq"] + list(trtmntVar) + list(confoundersVar) + list(auxVar); 
 	df = df [col_list] 
+
+	df = addMemIndex(df)
+	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
 	df = normalizeData(df)
@@ -199,22 +264,77 @@ def readWave6Data(basePath):
 	# df = df.ix[0:50,:]
 	return df
 
+
+
+
+def readWave7Data(basePath):
+	waveNumber=7
+	w6Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w6Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
+	w6FinDrv = pd.read_stata('{}/wave_7_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
+	
+
+	s1 = pd.merge(w6Core, w6Drv, how='inner', on=['idauniq'])
+	df = pd.merge(s1, w6FinDrv, how='inner', on=['idauniq'])
+
+	df = df.rename(columns = {'HeActa':'heacta'})
+	df = df.rename(columns = {'HeActb':'heactb'})
+	df = df.rename(columns = {'HeActc':'heactc'})
+	df = df.rename(columns = {'Hehelf':'hehelf'})
+	df = df.rename(columns = {'HeSkb':'heskb'})
+	df = df.rename(columns = {'DhSex':'dhsex'})
+	df = df.rename(columns = {'scfrdl':'scfrdm'})
+
+
+
+	df = df.rename(columns = {'CfDScr':'cfdscr'})
+	df = df.rename(columns = {'CfLisEn':'cflisen'})
+	df = df.rename(columns = {'CfLisD':'cflisd'})
+	df = df.rename(columns = {'CfDatD':'cfdatd'})
+
+
+
+	# col_list = ["idauniq","heacta","heactb","heactc", "scorg03", "scorg06", "scorg05", "scorg07", "hehelf",
+	# 			 "scfrda" , "scfrdg","scako", "heskb", "indager", "dhsex" , "scfrdm", "memtotb","totwq10_bu_s",  ]
+	
+	col_list = ["idauniq"] + list(trtmntVar) + list(confoundersVar) + list(auxVar); 
+	df = df [col_list] 
+
+	df = addMemIndex(df)
+	df = removeAuxVars(df)
+
+	df = harmonizeData(df)
+	df = normalizeData(df)
+	df = binarizeData(df)
+	# df = df.ix[0:50,:]
+	return df
+
+
 def removeAuxVars(df):
 	df= df.drop(list(auxVar),axis=1)
 	return df
 
 
 def readData():
+	df1 = readWave1Data(basePath)
+	df2 = readWave2Data(basePath)
 	df3 = readWave3Data(basePath)
 	df4 = readWave4Data(basePath)
 	df5 = readWave5Data(basePath)
-	df34 = pd.merge(df3, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
-	df345 = pd.merge(df34, df5, how='inner', on=['idauniq'],suffixes=('_4', '_5'))
+	df6 = readWave6Data(basePath)
+	df7 = readWave7Data(basePath)
 
-	return df345
+	df12 = pd.merge(df1, df2, how='inner', on=['idauniq'],suffixes=('_1', ''))
+	df13 = pd.merge(df12, df3, how='inner', on=['idauniq'],suffixes=('_2', ''))
+	df14 = pd.merge(df13, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
+	df15 = pd.merge(df14, df5, how='inner', on=['idauniq'],suffixes=('_4', ''))
+	df16 = pd.merge(df15, df6, how='inner', on=['idauniq'],suffixes=('_5', ''))
+	df17 = pd.merge(df16, df7, how='inner', on=['idauniq'],suffixes=('_6', '_7'))
+	return df17
 
 def addMemIndex(df):
 	df["memIndex"] = df.apply(computeMemIndex, axis=1)
+	df= df.dropna(subset=["memIndex"])
 	return df
 
 
