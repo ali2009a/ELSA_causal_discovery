@@ -8,11 +8,16 @@ import time
 import subprocess
 import os
 from features import *
+import scipy.signal as ss
+import numpy as np
+import math
+from numpy import diff
+
 
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"])
 confoundersVar = set(["scfrda","scfrdg","indager", "hehelf","dhsex","totwq10_bu_s"])
-targetVar = set(["memtotb"])
+targetVar = set(["memIndex"])
 auxVar = set(["cfdscr","cflisen", "cflisd","cfdatd"])
 allVar = trtmntVar|confoundersVar|targetVar
 
@@ -42,10 +47,14 @@ def returnSample(df):
 		
 		for var in varNames:
 			col_list.append("{}_b_{}".format(var,num))
-		col_list.append( "memIndex_{}".format(num))
-			
+		col_list.append( "memIndex_{}".format(num))		
 	return df[col_list]
 
+def removeMedianValues(df):
+	for i in range(1,8):
+		columnName = "scfrdm_b_{}".format(i)
+		df= df.drop( df[ (df[columnName]==2)].index)
+	return df
 
 def report(df, var):
 	for i in [3,4,5]:
@@ -478,6 +487,77 @@ def computePValue(X,Y):
 	res= scipy.stats.wilcoxon(X,Y,"wilcox")
 	pVal = res[1]
 	return pVal
+
+
+def getVariableData(df, var):
+	Xvars=[]
+	for i in range(1,8):
+		Xvar = "{}_{}".format(var, i)
+		Xvars.append(Xvar)
+	# print Xvars
+
+	newDF = df[Xvars]
+
+	minVal= float("-inf")
+	maxVal = float("inf")
+	for var in Xvars:
+		# print var
+		if newDF[var].min()<minVal:
+			minVal = newDF[var].min()
+		if newDF[var].max()>maxVal:
+			maxVal = newDF[var].max()
+	
+	for var in Xvars:
+		newDF[var] =  (newDF[var] - newDF[var].min())/(newDF[var].max()- newDF[var].min())	
+			
+	return newDF
+
+
+def detectLag(a,b):
+	# result = ss.correlate(Xvec, Yvec, method="direct")
+	result= ss.correlate(a - np.mean(a), b - np.mean(b), method='direct')/(np.std(a)*np.std(b)*len(a))
+	lag = np.argmax(result) - len(result)//2
+	return (lag, result[np.argmax(result)])
+
+
+
+def computeLag(df, X,Y):
+	X = getVariableData(df, X)
+	Y = getVariableData(df, Y)
+
+
+
+	res = []
+
+	lags = {}
+	counter= {}
+	for i in range(-7,8):
+		lags[i]=0
+		counter[i] = 0
+
+
+	for i in range(0,len(Y)):
+		lag = detectLag(diff(X.loc[i]), diff(Y.loc[i]))
+		# print X.loc[i]
+		# print Y.loc[i]
+		# print lag
+		if  not math.isnan(lag[1]):
+			# print type(lag[1])
+			# print lag[1]
+			lags[lag[0]]+= lag[1]
+			counter[lag[0]]+= 1
+	for i in range(-7,8):
+		print i, lags[i] 
+		if counter[i]:
+			print lags[i]/counter[i]	
+
+	return lags, counter
+
+
+def computeLagForAllVars(df):
+	for var in trtmntVar:
+		print "examining ", var
+		res= computeLag(df,var, list(targetVar)[0])
 
 
 def f():
