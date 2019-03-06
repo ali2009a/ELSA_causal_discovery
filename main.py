@@ -15,10 +15,11 @@ from numpy import diff
 
 
 #"scako" was removed because wave 1 had different scale
-trtmntVar = set(["scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"])
-confoundersVar = set(["scfrda","scfrdg","indager", "hehelf","dhsex","totwq10_bu_s"])
-targetVar = set(["memIndex"])
+trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #9
+confoundersVar = set(["indager", "hehelf","dhsex","totwq10_bu_s"])   #6
+targetVar = set(["memIndex"])  #1
 auxVar = set(["cfdscr","cflisen", "cflisd","cfdatd"])
+drvVar = set(["memIndexChange", "baseMemIndex"])  #1
 allVar = trtmntVar|confoundersVar|targetVar
 
 
@@ -65,7 +66,7 @@ def report(df, var):
 		print "std", df["{}_{}".format(var, i)].std()
 
 def harmonizeData(df):
-	print allVar
+	# print allVar
 	for var in (trtmntVar|confoundersVar):
 		df[var] = df[var].apply((globals()[var].harmonize))
 	
@@ -88,11 +89,25 @@ def binarizeData(df):
 
 
 def normalizeData(df):
-	cols = list(df.columns)
-	cols.remove('idauniq')
-	for col in cols:
-	    col_norm = col + '_n'
-	    df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
+	# cols = list(df.columns)
+	# cols.remove('idauniq')
+	# for col in cols:
+	#     col_norm = col + '_n'
+	#     df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
+
+	for var in (trtmntVar|confoundersVar|targetVar|drvVar):
+		dfs=[]
+		for i in range(1,8):
+			col = "{}_{}".format(var,i)
+			dfs.append(pd.DataFrame( {var: df[col]}))
+		mergedDf = pd.concat(dfs)
+		mean= mergedDf[var].mean()
+		std = mergedDf[var].std()
+		for i in range(1,8):
+			col = "{}_{}".format(var,i)
+			col_norm = "{}_n_{}".format(var,i)
+			df[col_norm] = (df[col] - mean)/(std)
+
 	return df
 
 def readWave1Data(basePath):
@@ -116,7 +131,7 @@ def readWave1Data(basePath):
 	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
-	df = normalizeData(df)
+	# df = normalizeData(df)
 	df = binarizeData(df)
 	# df= addSuffix(df,1)
 	# df = df.ix[0:50,:]
@@ -158,7 +173,7 @@ def readWave2Data(basePath):
 	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
-	df = normalizeData(df)
+	# df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -182,7 +197,7 @@ def readWave3Data(basePath):
 	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
-	df = normalizeData(df)
+	# df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -205,7 +220,7 @@ def readWave4Data(basePath):
 	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
-	df = normalizeData(df)
+	# df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -227,7 +242,7 @@ def readWave5Data(basePath):
 	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
-	df = normalizeData(df)
+	# df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -268,7 +283,7 @@ def readWave6Data(basePath):
 	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
-	df = normalizeData(df)
+	# df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -313,7 +328,7 @@ def readWave7Data(basePath):
 	df = removeAuxVars(df)
 
 	df = harmonizeData(df)
-	df = normalizeData(df)
+	# df = normalizeData(df)
 	df = binarizeData(df)
 	# df = df.ix[0:50,:]
 	return df
@@ -333,13 +348,20 @@ def readData():
 	df6 = readWave6Data(basePath)
 	df7 = readWave7Data(basePath)
 
+
 	df12 = pd.merge(df1, df2, how='inner', on=['idauniq'],suffixes=('_1', ''))
 	df13 = pd.merge(df12, df3, how='inner', on=['idauniq'],suffixes=('_2', ''))
 	df14 = pd.merge(df13, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
 	df15 = pd.merge(df14, df5, how='inner', on=['idauniq'],suffixes=('_4', ''))
 	df16 = pd.merge(df15, df6, how='inner', on=['idauniq'],suffixes=('_5', ''))
 	df17 = pd.merge(df16, df7, how='inner', on=['idauniq'],suffixes=('_6', '_7'))
+
+	# df34 = pd.merge(df3, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
+	# df35 = pd.merge(df34, df5, how='inner', on=['idauniq'],suffixes=('_4', '_5'))
+
 	return df17
+
+	# return [df1, df2, df3, df4, df5, df6 , df7]
 
 def addMemIndex(df):
 	df["memIndex"] = df.apply(computeMemIndex, axis=1)
@@ -348,8 +370,8 @@ def addMemIndex(df):
 
 
 def computeMemIndexChange(row, waveNumber):
-	memtotVarCur = "memtotb_{}".format(waveNumber) 
-	memtotVarPrev = "memtotb_{}".format(waveNumber-1)
+	memtotVarCur = "memIndex_{}".format(waveNumber) 
+	memtotVarPrev = "memIndex_{}".format(waveNumber-1)
 	return row[memtotVarCur] - row[memtotVarPrev]
 
 
@@ -377,12 +399,28 @@ def computeDistance(row1,row2):
 
 def preProcessData(df):
 	# df= df.dropna(axis=0, how="any")
-	df= df.dropna(subset=["memtotb_3","memtotb_4","memtotb_5"])
-	df["memtotChangeW4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
-	df["memtotChangeW5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	# df= df.dropna(subset=["memIndex_1", "memIndex_", "memIndex", "memIndex","memIndex","memIndex","memIndex"])
+    
+	df["memIndexChange_1"]=  np.nan
+	df["memIndexChange_2"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
+	df["memIndexChange_3"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	df["memIndexChange_4"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	df["memIndexChange_5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	df["memIndexChange_6"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	df["memIndexChange_7"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+
+
+	df["baseMemIndex_7"] = df["memIndex_6"]
+	df["baseMemIndex_6"] = df["memIndex_5"]
+	df["baseMemIndex_5"] = df["memIndex_4"]
+	df["baseMemIndex_4"] = df["memIndex_3"]
+	df["baseMemIndex_3"] = df["memIndex_2"]
+	df["baseMemIndex_2"] = df["memIndex_1"]
+	df["baseMemIndex_1"] = np.nan
+
+
+	df = normalizeData(df)
 	
-	df["memtotb_n_5"] = df["memtotb_n_4"]
-	df["memtotb_n_4"] = df["memtotb_n_3"]
 	
 	return df
 
@@ -390,18 +428,19 @@ def preProcessData(df):
 def getTreatmentGroups(df, indVariable, waveNumber):
 	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
 	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
+	memIndexChangeVar = "memIndexChange_{}".format(waveNumber)
 
 	treatmentIndexes = df.index[df[varCurrWave] == 1].tolist()
 	controlIndexes = df.index[df[varCurrWave] == 0].tolist()	
 	
 	for i in treatmentIndexes:
-		if (df.loc[i][varPrevWave]==1) or (df.loc[i][varPrevWave]==np.nan):
+		if (df.loc[i][varPrevWave]==1) or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
 			treatmentIndexes.remove(i)
 
 	for i in controlIndexes:
-		if df.loc[i][varPrevWave]==1 or (df.loc[i][varPrevWave]==np.nan):
+		if df.loc[i][varPrevWave]==1 or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
 			controlIndexes.remove(i)
-	print "G"
+	print "Group size:"
 	print len(controlIndexes)
 	print len(treatmentIndexes)
 	return [controlIndexes, treatmentIndexes]
@@ -411,13 +450,17 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 	controlIndexes = treatmentGroups[0]
 	treatmentIndexes = treatmentGroups[1]
 
-	cols = df.columns.tolist()
-	cols.remove('idauniq')
-	pattern = r"[a-zA-Z0-9]*_n_{}$".format(waveNumber)
+	# cols = df.columns.tolist()
+	# cols.remove('idauniq')
+	# pattern = r"[a-zA-Z0-9]*_n_{}$".format(waveNumber)
 	confounders = []
-	for colName in cols:
-		if (re.match(pattern, colName) and not (indVariable in colName)):
-			confounders.append(colName)
+	# for colName in cols:
+	# 	if (re.match(pattern, colName) and not (indVariable in colName)):
+	# 		confounders.append(colName)
+
+	for var in ((trtmntVar| confoundersVar | set(["baseMemIndex"]))- set([indVariable])):
+		colName= "{}_{}".format(var,waveNumber)
+		confounders.append(colName)	
 
 	confDF = df[confounders]
 
@@ -476,7 +519,7 @@ def performMatching(C):
 	return indexes
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
-	memTotChangeVar = "memtotChangeW{}".format(waveNumber)
+	memTotChangeVar = "memIndexChange_{}".format(waveNumber)
 	controlIndexes = treatmentGroups[0]
 	treatmentIndexes = treatmentGroups[1]
 	memtotT = [  df.loc[treatmentIndexes[i[0]]][memTotChangeVar]  for i in indexes]
@@ -498,6 +541,43 @@ def getVariableData(df, var):
 
 	newDF = df[Xvars]
 
+	# minVal= float("-inf")
+	# maxVal = float("inf")
+	# for var in Xvars:
+	# 	# print var
+	# 	if newDF[var].min()<minVal:
+	# 		minVal = newDF[var].min()
+	# 	if newDF[var].max()>maxVal:
+	# 		maxVal = newDF[var].max()
+	
+	# for var in Xvars:
+	# 	newDF[var] =  (newDF[var] - newDF[var].min())/(newDF[var].max()- newDF[var].min())	
+			
+	return newDF
+
+
+
+def exportVariables(df):
+
+	for var in (trtmntVar|targetVar):
+		D = getVariableData(df, var)
+		D.to_csv("{}_data.csv".format(var))
+
+	return
+
+
+
+	X = getVariableData(df, X)
+
+def getVariableDataBinary(df, var):
+	Xvars=[]
+	for i in range(1,8):
+		Xvar = "{}_b_{}".format(var, i)
+		Xvars.append(Xvar)
+	# print Xvars
+
+	newDF = df[Xvars]
+
 	minVal= float("-inf")
 	maxVal = float("inf")
 	for var in Xvars:
@@ -512,46 +592,59 @@ def getVariableData(df, var):
 			
 	return newDF
 
-
 def detectLag(a,b):
-	# result = ss.correlate(Xvec, Yvec, method="direct")
-	result= ss.correlate(a - np.mean(a), b - np.mean(b), method='direct')/(np.std(a)*np.std(b)*len(a))
-	lag = np.argmax(result) - len(result)//2
-	return (lag, result[np.argmax(result)])
+	# print a
+	# print b
+	# # result = ss.correlate(Xvec, Yvec, method="direct")
+	# print "a", len(a)
+	# print "b", len(b)
 
+	# result= ss.correlate(a - np.mean(a), b - np.mean(b), method='direct')/(np.std(a)*np.std(b)*len(a))
+	result= ss.correlate(a, b, method='direct')
+	return result
+
+def findWaveVars(inputList):
+	pattern = r"[a-zA-Z0-9_]*_1$"
+	for var in inputList:
+		if re.match(pattern, var):
+			print var 
 
 
 def computeLag(df, X,Y):
 	X = getVariableData(df, X)
 	Y = getVariableData(df, Y)
 
-
+	X = X.interpolate()
 
 	res = []
 
-	lags = {}
-	counter= {}
-	for i in range(-7,8):
-		lags[i]=0
-		counter[i] = 0
+	# lags = {}
+	# counter= {}
+	# for i in range(-7,8):
+		# lags[i]=0
+		# counter[i] = 0
 
 
 	for i in range(0,len(Y)):
 		lag = detectLag(diff(X.loc[i]), diff(Y.loc[i]))
+		res.append(lag)
 		# print X.loc[i]
 		# print Y.loc[i]
 		# print lag
-		if  not math.isnan(lag[1]):
-			# print type(lag[1])
-			# print lag[1]
-			lags[lag[0]]+= lag[1]
-			counter[lag[0]]+= 1
-	for i in range(-7,8):
-		print i, lags[i] 
-		if counter[i]:
-			print lags[i]/counter[i]	
+		# if  not math.isnan(lag[1]):
+		# 	# print type(lag[1])
+		# 	# print lag[1]
+		# 	lags[lag[0]]+= lag[1]
+		# 	counter[lag[0]]+= 1
 
-	return lags, counter
+	return (X,Y,res)
+
+	# for i in range(-7,8):
+	# 	print "lag: {} , sum: {:.2f}".format(i, lags[i]) 
+	# 	if counter[i]:
+	# 		print "\t avg: {0:.2f}".format(lags[i]/counter[i])	
+
+	# return lags, counter
 
 
 def computeLagForAllVars(df):
@@ -565,23 +658,17 @@ def f():
 
 	df = readData()
 	df = preProcessData(df)
-	indVariables = ["heacta", "heactb", "heactc", "scorg03", "scorg05", "scorg06","scorg07",
-					"scako","heskb", "scfrdm", "scfrdg" , "scfrda"]
 
-	# indVariables = ["heacta"]
 
-	# indVariables = ["scako"]
 
-	# indVariables=indVariables[0:3]
-	# targetValues = []
 	pVals = {}
 	for indVariable in indVariables:
 		pVals[indVariable] = []
 	
-	for indVariable in indVariables:
+	for indVariable in trtmntVar:
 		s =time.time()
 		print indVariable
-		for waveNumber in [4,5]:
+		for waveNumber in [2,3,4,5,6,7]:
 			print waveNumber
 			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
