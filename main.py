@@ -17,11 +17,13 @@ from numpy import diff
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #9
 confoundersVar = set(["indager", "hehelf","dhsex","totwq10_bu_s"])   #6
+binaryVariables = set(["scorg03","scorg06","scorg05","scorg07","dhsex"])
 targetVar = set(["memIndex"])  #1
 auxVar = set(["cfdscr","cflisen", "cflisd","cfdatd"])
 drvVar = set(["memIndexChange", "baseMemIndex"])  #1
 allVar = trtmntVar|confoundersVar|targetVar
 
+weights = {"scfrda":1,"scfrdg":1,"scfrdm":1,"heacta":1, "heactb":1,"heactc":1, "scorg03":1,"scorg06":1,"scorg05":1,"scorg07":1,"heskb":1,"indager":2, "hehelf":1,"dhsex":1,"totwq10_bu_s":1,"baseMemIndex":1}
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
 REFUSAL=-9
@@ -103,6 +105,8 @@ def normalizeData(df):
 		mergedDf = pd.concat(dfs)
 		mean= mergedDf[var].mean()
 		std = mergedDf[var].std()
+		minValue = mergedDf[var].min()
+		maxValue = mergedDf[var].max()
 		for i in range(1,8):
 			col = "{}_{}".format(var,i)
 			col_norm = "{}_n_{}".format(var,i)
@@ -339,7 +343,7 @@ def removeAuxVars(df):
 	return df
 
 
-def readData():
+def readData(mergeMethod="inner"):
 	df1 = readWave1Data(basePath)
 	df2 = readWave2Data(basePath)
 	df3 = readWave3Data(basePath)
@@ -349,12 +353,12 @@ def readData():
 	df7 = readWave7Data(basePath)
 
 
-	df12 = pd.merge(df1, df2, how='inner', on=['idauniq'],suffixes=('_1', ''))
-	df13 = pd.merge(df12, df3, how='inner', on=['idauniq'],suffixes=('_2', ''))
-	df14 = pd.merge(df13, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
-	df15 = pd.merge(df14, df5, how='inner', on=['idauniq'],suffixes=('_4', ''))
-	df16 = pd.merge(df15, df6, how='inner', on=['idauniq'],suffixes=('_5', ''))
-	df17 = pd.merge(df16, df7, how='inner', on=['idauniq'],suffixes=('_6', '_7'))
+	df12 = pd.merge(df1,  df2, how=mergeMethod, on=['idauniq'],suffixes=('_1', ''))
+	df13 = pd.merge(df12, df3, how=mergeMethod, on=['idauniq'],suffixes=('_2', ''))
+	df14 = pd.merge(df13, df4, how=mergeMethod, on=['idauniq'],suffixes=('_3', ''))
+	df15 = pd.merge(df14, df5, how=mergeMethod, on=['idauniq'],suffixes=('_4', ''))
+	df16 = pd.merge(df15, df6, how=mergeMethod, on=['idauniq'],suffixes=('_5', ''))
+	df17 = pd.merge(df16, df7, how=mergeMethod, on=['idauniq'],suffixes=('_6', '_7'))
 
 	# df34 = pd.merge(df3, df4, how='inner', on=['idauniq'],suffixes=('_3', ''))
 	# df35 = pd.merge(df34, df5, how='inner', on=['idauniq'],suffixes=('_4', '_5'))
@@ -391,8 +395,9 @@ def computeMemIndex(row):
 		return row["cfdscr"] + row["cflisd"] + row["cflisen"]
 
 
-def computeDistance(row1,row2):
+def computeDistance(row1,row2, weights_local):
 	diff  = row1 - row2
+	diff = diff*weights_local
 	diff = diff[~np.isnan(diff)]
 	return np.linalg.norm(diff)
 
@@ -458,18 +463,34 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 	# 	if (re.match(pattern, colName) and not (indVariable in colName)):
 	# 		confounders.append(colName)
 
+	weights_local = []
+
 	for var in ((trtmntVar| confoundersVar | set(["baseMemIndex"]))- set([indVariable])):
-		colName= "{}_{}".format(var,waveNumber)
+		if var in binaryVariables:
+			colName = "{}_{}".format(var,waveNumber)
+		else:
+			colName= "{}_n_{}".format(var,waveNumber)
 		confounders.append(colName)	
+		if var == "indager":
+			weights_local.append(3)
+		elif var == "baseMemIndex":
+			weights_local.append(3)
+		else:
+			weights_local.append(1)
+
 
 	confDF = df[confounders]
+	# print confounders
 
 	numTreat = len(treatmentIndexes)
 	numControl = len(controlIndexes)
 	C = np.zeros(shape = (numTreat, numControl))
 	for i in range(numTreat):
 		for j in range(numControl):
-			C[i,j] = computeDistance(confDF.loc[treatmentIndexes[i]].values, confDF.loc[controlIndexes[j]].values)
+			# print confDF.loc[treatmentIndexes[i]]
+			# print confDF.loc[treatmentIndexes[i]].values
+			# print weights_local
+			C[i,j] = computeDistance(confDF.loc[treatmentIndexes[i]].values, confDF.loc[controlIndexes[j]].values,weights_local)
 
 	return C
 
@@ -654,7 +675,7 @@ def computeLagForAllVars(df):
 
 
 def f():
-	start_time = time.time()
+	# start_time = time.time()
 
 	df = readData()
 	df = preProcessData(df)
@@ -662,13 +683,15 @@ def f():
 
 
 	pVals = {}
-	for indVariable in indVariables:
+	for indVariable in trtmntVar:
 		pVals[indVariable] = []
 	
 	for indVariable in trtmntVar:
+	# for indVariable in ["heactb"]:
 		s =time.time()
 		print indVariable
 		for waveNumber in [2,3,4,5,6,7]:
+		# for waveNumber in [5]:
 			print waveNumber
 			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
