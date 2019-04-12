@@ -741,6 +741,21 @@ def expandData(df):
 	finalDF = pd.merge(newDF,  df, how="inner", on=['idauniq'])		
 	return finalDF
 
+
+def interpolate(df):
+	for index, row in df.iterrows():
+		for var in (trtmntVar|confoundersVar|targetVar):
+			cols= []
+			for i in range(1,15):
+				col = "{}_n_{}".format(var,i)
+				cols.append(col)
+			seq = df.loc[index, cols]
+			f2 = pd.DataFrame(np.array([seq]), columns=cols)
+			f2=f2.interpolate(method ='linear', axis=1, limit_direction="both" )
+			df.loc[index, cols] = f2.loc[0, cols]
+	return df
+
+
 def heidegger():
 	df = readData()
 	df= expandData()
