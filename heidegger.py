@@ -750,15 +750,85 @@ def interpolate(df):
 				col = "{}_n_{}".format(var,i)
 				cols.append(col)
 			seq = df.loc[index, cols]
-			f2 = pd.DataFrame(np.array([seq]), columns=cols)
-			f2=f2.interpolate(method ='linear', axis=1, limit_direction="both" )
+			f2  = pd.DataFrame(np.array([seq]), columns=cols)
+			f2  = f2.interpolate(method ='linear', axis=1, limit_direction="both" )
 			df.loc[index, cols] = f2.loc[0, cols]
 	return df
 
 
+def getTreatmentSignal():
+	signal = [0,0,0,0,0,0,1]
+	weights = [ 0.015625 , 0.03125 , 0.0625  ,0.125 , 0.25 ,0.5,1]	
+
+	return (signal, weights)
+
+def getControlSignal():
+	signal = np.array([0,0,0,0,0,0,0])
+	weights = np.array( [ 0.015625 , 0.03125 , 0.0625  ,0.125 , 0.25 ,0.5,1])	
+
+	return (signal, weights)
+
+
+def computeDistance(seq, signal, seqLabel):
+	# print "seq", seq
+	# print "label", seqLabel
+	values  = signal[0]
+	weights = signal[1]
+	penalty =0.3
+	sumDiff=0
+	for i in range(len(values)):
+		if seqLabel[i]:
+			diff =  penalty
+		else:
+			diff =np.abs(values[i]- seq[i])
+		sumDiff = sumDiff + diff*weights[i]
+	avgDiff = sumDiff/np.sum(weights)
+	return avgDiff
+
+def measureSimilarity(var, signal, df, nanLabel):
+	WAVE_NUM=7
+	[samplesNum, columnsNum] = df.shape
+	distanceValues = np.empty((samplesNum*WAVE_NUM,3))
+	distanceValues[:] = np.nan
+
+
+
+	counter= 0
+	for index in range(0, len(df)):
+	# for index in [17, 11709]:
+		print "index", index	
+		for w in range(8,15):
+			# print "w", w
+			cols= []
+			for i in range(w-6,w+1):
+
+				col = "{}_n_{}".format(var,i)
+				cols.append(col)
+
+			seq = np.array(df.loc[index, cols])
+			seqLabel = np.array(nanLabel.loc[index, cols])
+			diff = computeDistance(seq, signal, seqLabel)
+			distanceValues[counter,:]=  [int(index), int(w), diff]
+			counter = counter+1		
+	return distanceValues
+
+def checkIsNan(x):
+   return np.isnan(x)
+
+
+def identifyTreatmentGroup(var, signal, df, nanLabel):
+	D = measureSimilarity(var, signal, df, nanLabel)
+
+
+
+
 def heidegger():
 	df = readData()
-	df= expandData()
+	df= normalizeData(df)
+	df= expandData(df)
+	nanLabel = df.apply(checkIsNan) 
+	df = interpolate(df)
+
 
 if __name__ == "__main__":
 	print "a"
