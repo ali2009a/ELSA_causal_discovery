@@ -774,7 +774,7 @@ def getControlSignal():
 def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 	# print "seq", seq
 	# print "label", seqLabel
-	if weights == None:
+	if weights is None:
 		F_index = 0.75
 		L = len(seq1)
 		weights= np.zeros(L)
@@ -797,14 +797,15 @@ def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 def measureSimilarity(var, signal, df, nanLabel):
 	[samplesNum, columnsNum] = df.shape
 	distanceValues = np.empty((samplesNum*WAVE_NUM,3))
+	# distanceValues = np.empty((7*5000,3))
 	distanceValues[:] = np.nan
 
 
 
 	counter= 0
 	for index in range(0, len(df)):
-	# for index in [6915]:
-		print "index", index	
+	# for index in range(0,5000):
+		# print "index", index	
 		for w in range(8,15):
 			# print "w", w
 			cols= []
@@ -892,7 +893,28 @@ def heidegger():
 		targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC)
 		pval = computePValue(targetValues[0], targetValues[1])
 
-		
+
+def produceHistograms(df, nanLabel):
+	for var in trtmntVar:
+		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
+		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
+		DT= distanceInfoT[:,2]
+		DC= distanceInfoC[:,2]
+
+		plt.figure()
+		plt.hist(DT, bins=20) 
+		title = "{} treatment".format(var)
+		plt.title(title)
+		plt.savefig("{}.png".format(title))
+		DT.tofile("{}.csv".format(title),sep=',')
+
+		plt.figure()
+		plt.hist(DC, bins=20) 
+		title = "{} control".format(var)
+		plt.title(title)
+		plt.savefig("{}.png".format(title))
+		DC.tofile("{}.csv".format(title),sep=',')
+
 
 def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC):
 	memtotT = []
