@@ -12,6 +12,8 @@ import scipy.signal as ss
 import numpy as np
 import math
 from numpy import diff
+from sklearn.cluster import KMeans
+
 
 
 #"scako" was removed because wave 1 had different scale
@@ -22,7 +24,7 @@ targetVar = set(["memIndex"])  #1
 auxVar = set(["cfdscr","cflisen", "cflisd","cfdatd"])
 drvVar = set(["memIndexChange", "baseMemIndex"])  #1
 allVar = trtmntVar|confoundersVar|targetVar
-
+WAVE_NUM=7
 weights = {"scfrda":1,"scfrdg":1,"scfrdm":1,"heacta":1, "heactb":1,"heactc":1, "scorg03":1,"scorg06":1,"scorg05":1,"scorg07":1,"heskb":1,"indager":2, "hehelf":1,"dhsex":1,"totwq10_bu_s":1,"baseMemIndex":1}
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
@@ -758,35 +760,41 @@ def interpolate(df):
 
 def getTreatmentSignal():
 	signal = [0,0,0,0,0,0,1]
-	weights = [ 0.015625 , 0.03125 , 0.0625  ,0.125 , 0.25 ,0.5,1]	
+	weights =  np.array( [ 0.177978516 , 0.237304688 ,0.31640625  ,0.421875 , 0.5625 ,0.75,1])	
 
 	return (signal, weights)
 
 def getControlSignal():
 	signal = np.array([0,0,0,0,0,0,0])
-	weights = np.array( [ 0.015625 , 0.03125 , 0.0625  ,0.125 , 0.25 ,0.5,1])	
+	weights = np.array( [ 0.177978516 , 0.237304688 ,0.31640625  ,0.421875 , 0.5625 ,0.75,1])	
 
 	return (signal, weights)
 
 
-def computeDistance(seq, signal, seqLabel):
+def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 	# print "seq", seq
 	# print "label", seqLabel
-	values  = signal[0]
-	weights = signal[1]
-	penalty =0.3
+	if weights == None:
+		F_index = 0.75
+		L = len(seq1)
+		weights= np.zeros(L)
+		for i in range(0,L):
+			weights[i] = F_index ** ( (L-1)-i);
+	penalty =0.5
 	sumDiff=0
-	for i in range(len(values)):
-		if seqLabel[i]:
+	for i in range(len(seq1)):
+		if seq1Label[i]:
 			diff =  penalty
+		elif (not seq2Label is None) and seq2Label[i]:
+			diff =penalty
 		else:
-			diff =np.abs(values[i]- seq[i])
+			diff =np.abs(seq1[i]- seq2[i])
 		sumDiff = sumDiff + diff*weights[i]
 	avgDiff = sumDiff/np.sum(weights)
+	
 	return avgDiff
 
 def measureSimilarity(var, signal, df, nanLabel):
-	WAVE_NUM=7
 	[samplesNum, columnsNum] = df.shape
 	distanceValues = np.empty((samplesNum*WAVE_NUM,3))
 	distanceValues[:] = np.nan
@@ -795,7 +803,7 @@ def measureSimilarity(var, signal, df, nanLabel):
 
 	counter= 0
 	for index in range(0, len(df)):
-	# for index in [17, 11709]:
+	# for index in [6915]:
 		print "index", index	
 		for w in range(8,15):
 			# print "w", w
@@ -807,7 +815,7 @@ def measureSimilarity(var, signal, df, nanLabel):
 
 			seq = np.array(df.loc[index, cols])
 			seqLabel = np.array(nanLabel.loc[index, cols])
-			diff = computeDistance(seq, signal, seqLabel)
+			diff = computeDistance(seq, signal[0], seqLabel, weights=signal[1])
 			distanceValues[counter,:]=  [int(index), int(w), diff]
 			counter = counter+1		
 	return distanceValues
@@ -820,15 +828,124 @@ def identifyTreatmentGroup(var, signal, df, nanLabel):
 	D = measureSimilarity(var, signal, df, nanLabel)
 
 
+	
+
+def MAD(data, axis=None):
+    res= np.median(np.absolute(data - np.median(data, axis)), axis)
+    return res/0.67
 
 
-def heidegger():
-	df = readData()
+def preprocess(df):
 	df= normalizeData(df)
 	df= expandData(df)
 	nanLabel = df.apply(checkIsNan) 
 	df = interpolate(df)
+	return df, nanLabel
 
+
+def detectOutliers(distanceInfo, L=3):
+	DT = distanceInfo[:,2]
+	# Outliers = DT < (np.median(DT) - L*MAD(DT))
+	# outliersIndex = np.where(Outliers)[0]
+	outliersIndex = DT.argsort()[:500]
+	return outliersIndex
+
+
+def computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar, i, j):
+		sumDiff = 0
+		for var in (varSet):
+			seqs_T = extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar)
+			seqs_C = extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar)
+			diff = computeDistance(seqs_T[0], seqs_C[0], seqs_T[1], seqs_C[1])
+			sumDiff = sumDiff + diff
+		return sumDiff/len(varSet)	
+
+
+def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC):
+	C = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))
+	
+	for i in range(0,len(outliersIndexT)):
+		print i
+		for j in range(0, len(outliersIndexC)):
+			distances = []
+			d= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set(trtVariable), False, i, j)
+			distances.append(d)
+			d= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, i, j)
+			distances.append(d)
+			d=computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, i, j)
+			distances.append(d)
+			C[i,j]= np.mean(distances)
+	return C	
+
+def heidegger():
+	df = readData()
+	df, nanLabel = preprocess(df)
+
+
+	for var in trtmntVar:
+		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
+		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
+		outliersIndexT = detectOutliers(distanceInfoT)
+		outliersIndexC = detectOutliers(distanceInfoC)
+		C = computeDistanceMatrix(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
+		matchedPairs = performMatching(C)
+		targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC)
+		pval = computePValue(targetValues[0], targetValues[1])
+
+		
+
+def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC):
+	memtotT = []
+	memtotC = []
+	
+	for pair in matchedPairs:
+		index, w  = distanceInfoT[outliersIndexT[pair[0]],0] ,distanceInfoT[outliersIndexT[pair[0]],1]
+		w=int(w)
+		index=  int(index)
+		col= "memIndex_{}".format(w)
+		print "index:{}, w:{}".format(index,w)
+		print col
+		memtotT.append( df.loc[index, col])
+
+	for pair in matchedPairs:
+		index, w  = distanceInfoC[outliersIndexC[pair[1]],0] ,distanceInfoC[outliersIndexC[pair[1]],1]
+		w=int(w)
+		index=  int(index)
+		col= "memIndex_{}".format(w)
+		memtotC.append( df.loc[index, col])
+
+	return [memtotC, memtotT] 	
+
+
+def extractSeq(df, nanLabel, var, index, w, isTargetVar):
+	s = int(w-6)
+	e = int(w+1)
+	if isTargetVar:
+		e = int(w)
+	cols= []
+	for k in range(s,e):
+		col = "{}_n_{}".format(var,k)
+		cols.append(col)
+
+	seq = np.array(df.loc[index, cols])
+	seqLabel = np.array(nanLabel.loc[index, cols])
+	return (seq, seqLabel)
+
+
+def drawKmeanDiagram(Data):
+	Data= Data.reshape(-1, 1)
+	Sum_of_squared_distances = []
+	K = range(1,15)
+	for k in K:
+	    km = KMeans(n_clusters=k)
+	    km = km.fit(Data)
+	    Sum_of_squared_distances.append(km.inertia_)
+
+	plt.plot(K, Sum_of_squared_distances, 'bx-')
+	plt.xlabel('k')
+	plt.ylabel('Sum_of_squared_distances')
+	plt.title('Elbow Method For Optimal k')
+	plt.show()
 
 if __name__ == "__main__":
 	print "a"
