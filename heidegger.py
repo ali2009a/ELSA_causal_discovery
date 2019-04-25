@@ -13,7 +13,7 @@ import numpy as np
 import math
 from numpy import diff
 from sklearn.cluster import KMeans
-
+from tqdm import tqdm
 
 
 #"scako" was removed because wave 1 had different scale
@@ -113,9 +113,9 @@ def normalizeData(df):
 			df[col_norm] = (df[col] - minValue)/(maxValue - minValue)
 		if not var in targetVar:
 			for i in range(1,8):
-				print "removed"
+				# print "removed"
 				col = "{}_{}".format(var,i)
-				print col
+				# print col
 				df = df.drop(columns=col)
 	return df
 
@@ -534,6 +534,7 @@ def performMatching(C):
 	run_cmd(command)
 	with open('matching.txt', 'r') as f:
 		indexes = []
+		costs = []
 		for line in f:
 			words = line.rstrip('\n').split(',')
 			L = int(words[0])
@@ -541,10 +542,18 @@ def performMatching(C):
 			if R!= -1:
 				pair = (L,R)
 				indexes.append(pair)
+				costs.append(C[L,R])
 
-	# m = Munkres()
-	# indexes = m.compute(C)
+
+	# L=3
+	# costs = np.array(costs)
+	# logC= np.log(C.flatten())
+	# threshold = (np.median(logC) - L*MAD(logC))
+	# passThreshold = np.log(costs) < threshold
+	# passedPairs = [pair for idx, pair in enumerate(indexes) if passThreshold[idx] ]
+	# return passedPairs
 	return indexes
+
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
 	memTotChangeVar = "memIndexChange_{}".format(waveNumber)
@@ -803,7 +812,7 @@ def measureSimilarity(var, signal, df, nanLabel):
 
 
 	counter= 0
-	for index in range(0, len(df)):
+	for index in tqdm(range(0, len(df))):
 	# for index in range(0,5000):
 		# print "index", index	
 		for w in range(8,15):
@@ -845,10 +854,11 @@ def preprocess(df):
 
 
 def detectOutliers(distanceInfo, L=3):
-	DT = distanceInfo[:,2]
+	D = distanceInfo[:,2]
 	# Outliers = DT < (np.median(DT) - L*MAD(DT))
 	# outliersIndex = np.where(Outliers)[0]
-	outliersIndex = DT.argsort()[:500]
+	# outliersIndex = DT.argsort()[:100]
+	outliersIndex, L =  tuneL(D)
 	return outliersIndex
 
 
@@ -865,7 +875,7 @@ def computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInf
 def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC):
 	C = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))
 	
-	for i in range(0,len(outliersIndexT)):
+	for i in tqdm(range(0,len(outliersIndexT))):
 		print i
 		for j in range(0, len(outliersIndexC)):
 			distances = []
@@ -878,20 +888,43 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 			C[i,j]= np.mean(distances)
 	return C	
 
+def dump2DMatrix(C, var, outputPrefix):
+	r,c = C.shape
+	with open('{}_{}.txt'.format(outputPrefix, var), 'w') as f:
+		f.write("{} {}\n".format(r,c))
+		for i in range(0,r):
+			for j in range(0,c):
+				f.write( "{} ".format(C[i][j]))
+			f.write("\n")
+
+
 def heidegger():
 	df = readData()
 	df, nanLabel = preprocess(df)
 
+	f = open("result.txt","w")
 
-	for var in trtmntVar:
+	# for var in trtmntVar:
+	for var in ["heactb","heskb","scfrdm"]:
+		print "evaluting {}".format(var)
 		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
 		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
+
+		distanceInfoT[:,2].tofile("Treatment_Distance_{}.csv".format(var),sep=',') ## for debug
+		distanceInfoC[:,2].tofile("Control_Distance_{}.csv".format(var),sep=',')   ## for debug
+		
 		outliersIndexT = detectOutliers(distanceInfoT)
 		outliersIndexC = detectOutliers(distanceInfoC)
 		C = computeDistanceMatrix(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
+		
+		C.tofile("FlattenCostMatrix_{}.csv".format(var),sep=',')  ## for debug
+		dump2DMatrix(C, var, "CostMatrix")							## for debug
+
 		matchedPairs = performMatching(C)
-		targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC)
+		targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
 		pval = computePValue(targetValues[0], targetValues[1])
+		f.write("{}:{}\n".format(var, pval))
+	f.close()
 
 
 def produceHistograms(df, nanLabel):
@@ -916,26 +949,38 @@ def produceHistograms(df, nanLabel):
 		DC.tofile("{}.csv".format(title),sep=',')
 
 
-def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC):
+def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var):
 	memtotT = []
 	memtotC = []
 	
+	T_ids= []
+	C_ids = []
+
 	for pair in matchedPairs:
 		index, w  = distanceInfoT[outliersIndexT[pair[0]],0] ,distanceInfoT[outliersIndexT[pair[0]],1]
 		w=int(w)
 		index=  int(index)
+		T_ids.append((index,w))
 		col= "memIndex_{}".format(w)
-		print "index:{}, w:{}".format(index,w)
-		print col
+		# print "index:{}, w:{}".format(index,w)
+		# print col
 		memtotT.append( df.loc[index, col])
 
 	for pair in matchedPairs:
 		index, w  = distanceInfoC[outliersIndexC[pair[1]],0] ,distanceInfoC[outliersIndexC[pair[1]],1]
 		w=int(w)
 		index=  int(index)
+		C_ids.append((index,w))
 		col= "memIndex_{}".format(w)
 		memtotC.append( df.loc[index, col])
 
+
+
+	dump2DMatrix(np.array(T_ids), var, "Treatment_Ids")
+	dump2DMatrix(np.array(C_ids), var, "Control_Ids")
+	np.array(memtotT).tofile("memIndexValues_Treatment_{}.csv".format(var), sep=',')
+	np.array(memtotC).tofile("memIndexValues_Control_{}.csv".format(var), sep=',')
+	
 	return [memtotC, memtotT] 	
 
 
@@ -952,6 +997,61 @@ def extractSeq(df, nanLabel, var, index, w, isTargetVar):
 	seq = np.array(df.loc[index, cols])
 	seqLabel = np.array(nanLabel.loc[index, cols])
 	return (seq, seqLabel)
+
+
+def evaluateLValues(distances, df, nanLabel):
+	for pair in distances:
+		print "\n"
+		# distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
+		# distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
+		
+		# DT= distanceInfoT[:,2]
+		# DC= distanceInfoC[:,2]
+		DT =  pair[0]
+		DC = pair[1]
+		outliersIndexT, LT = tuneL(DT)
+		outliersIndexC, LC = tuneL(DC)
+
+		print "Control:{}".format(len(outliersIndexC))
+		print "Treatment:{}".format(len(outliersIndexT))
+
+def tuneL(Data):
+	UPPER_LIMIT=500
+	LOWER_LIMIT=100
+	Data[Data==0] = np.partition(np.unique(Data),1)[1]/10.0
+	Data = np.log(Data)
+	L=1
+	while (True):
+		Outliers = Data < (np.median(Data) - L*MAD(Data))
+		outliersIndex = np.where(Outliers)[0]
+		size= len(outliersIndex)
+		if(size<UPPER_LIMIT):
+			break
+		L=L+1
+	while (True):
+		Outliers = Data < (np.median(Data) - L*MAD(Data))
+		outliersIndex = np.where(Outliers)[0]
+		size= len(outliersIndex)
+		if(size>LOWER_LIMIT):
+			break
+		L=L-1
+	if (len(outliersIndex)>UPPER_LIMIT):
+		outliersIndex = np.random.choice(outliersIndex, UPPER_LIMIT, replace=False)
+	return (outliersIndex, L)
+
+
+def getVarDistances(df, nanLabel):
+	result= []
+	for var in trtmntVar:
+		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
+		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
+		
+		DT= distanceInfoT[:,2]
+		DC= distanceInfoC[:,2]
+
+		result.append((DT,DC))
+	return result
+
 
 
 def drawKmeanDiagram(Data):
