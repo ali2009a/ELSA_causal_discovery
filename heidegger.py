@@ -14,6 +14,8 @@ import math
 from numpy import diff
 from sklearn.cluster import KMeans
 from tqdm import tqdm
+dfPath = "df.pkl"
+nanLabelPath= "nanLabel.pkl"
 
 
 #"scako" was removed because wave 1 had different scale
@@ -545,14 +547,14 @@ def performMatching(C):
 				costs.append(C[L,R])
 
 
-	# L=3
-	# costs = np.array(costs)
-	# logC= np.log(C.flatten())
-	# threshold = (np.median(logC) - L*MAD(logC))
-	# passThreshold = np.log(costs) < threshold
-	# passedPairs = [pair for idx, pair in enumerate(indexes) if passThreshold[idx] ]
-	# return passedPairs
-	return indexes
+	L=3
+	costs = np.array(costs)
+	logC= np.log(C.flatten())
+	threshold = (np.median(logC) - L*MAD(logC))
+	passThreshold = np.log(costs) < threshold
+	passedPairs = [pair for idx, pair in enumerate(indexes) if passThreshold[idx] ]
+	return passedPairs
+	# return indexes
 
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
@@ -853,13 +855,24 @@ def preprocess(df):
 	return df, nanLabel
 
 
-def detectOutliers(distanceInfo, L=3):
+def detectOutliers(distanceInfo, nanLabel, L=3):
 	D = distanceInfo[:,2]
 	# Outliers = DT < (np.median(DT) - L*MAD(DT))
 	# outliersIndex = np.where(Outliers)[0]
 	# outliersIndex = DT.argsort()[:100]
 	outliersIndex, L =  tuneL(D)
+	outliersIndex = removeUnknownMI(outliersIndex)
 	return outliersIndex
+
+
+def removeUnknownMI(outliersIndex, distancesInfo, nanLabel):
+	for i in outliersIndex:
+		index = int(distanceInfoT[i,0])
+		w = int(distanceInfoT[i,1])
+		col= "memIndex_{}".format(w)
+		if (not nanLabel.loc[index,col]):
+			filteredIndex.append(i)
+	return filteredIndex
 
 
 def computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar, i, j):
@@ -899,8 +912,12 @@ def dump2DMatrix(C, var, outputPrefix):
 
 
 def heidegger():
-	df = readData()
-	df, nanLabel = preprocess(df)
+	if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
+		df = pd.read_pickle(dfPath)
+		nanLabel = pd.read_pickle(nanLabelPath)
+	else:
+		df = readData()
+		df, nanLabel = preprocess(df)
 
 	f = open("result.txt","w")
 
@@ -913,8 +930,8 @@ def heidegger():
 		distanceInfoT[:,2].tofile("Treatment_Distance_{}.csv".format(var),sep=',') ## for debug
 		distanceInfoC[:,2].tofile("Control_Distance_{}.csv".format(var),sep=',')   ## for debug
 		
-		outliersIndexT = detectOutliers(distanceInfoT)
-		outliersIndexC = detectOutliers(distanceInfoC)
+		outliersIndexT = detectOutliers(distanceInfoT, nanLabel)
+		outliersIndexC = detectOutliers(distanceInfoC, nanLabel)
 		C = computeDistanceMatrix(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
 		
 		C.tofile("FlattenCostMatrix_{}.csv".format(var),sep=',')  ## for debug
