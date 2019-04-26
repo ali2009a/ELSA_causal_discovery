@@ -866,9 +866,10 @@ def detectOutliers(distanceInfo, nanLabel, L=3):
 
 
 def removeUnknownMI(outliersIndex, distancesInfo, nanLabel):
+	filteredIndex = []
 	for i in outliersIndex:
-		index = int(distanceInfoT[i,0])
-		w = int(distanceInfoT[i,1])
+		index = int(distanceInfo[i,0])
+		w = int(distanceInfo[i,1])
 		col= "memIndex_{}".format(w)
 		if (not nanLabel.loc[index,col]):
 			filteredIndex.append(i)
