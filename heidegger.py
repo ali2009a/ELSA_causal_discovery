@@ -865,7 +865,7 @@ def detectOutliers(distanceInfo, nanLabel, L=3):
 	return outliersIndex
 
 
-def removeUnknownMI(outliersIndex, distancesInfo, nanLabel):
+def removeUnknownMI(outliersIndex, distanceInfo, nanLabel):
 	filteredIndex = []
 	for i in outliersIndex:
 		index = int(distanceInfo[i,0])
