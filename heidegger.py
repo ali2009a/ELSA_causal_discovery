@@ -861,7 +861,7 @@ def detectOutliers(distanceInfo, nanLabel, L=3):
 	# outliersIndex = np.where(Outliers)[0]
 	# outliersIndex = DT.argsort()[:100]
 	outliersIndex, L =  tuneL(D)
-	outliersIndex = removeUnknownMI(outliersIndex, distancesInfo, nanLabel)
+	outliersIndex = removeUnknownMI(outliersIndex, distanceInfo, nanLabel)
 	return outliersIndex
 
 
