@@ -861,7 +861,9 @@ def detectOutliers(distanceInfo, nanLabel, L=3):
 	# outliersIndex = np.where(Outliers)[0]
 	# outliersIndex = DT.argsort()[:100]
 	outliersIndex, L =  tuneL(D)
+        print "Len:", len(outliersIndex)
 	outliersIndex = removeUnknownMI(outliersIndex, distanceInfo, nanLabel)
+        print "Len2:",len(outliersIndex)
 	return outliersIndex
 
 
@@ -942,6 +944,8 @@ def heidegger():
 		targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
 		pval = computePValue(targetValues[0], targetValues[1])
 		f.write("{}:{}\n".format(var, pval))
+                f.flush()
+                os.fsync(f.fileno())
 	f.close()
 
 
