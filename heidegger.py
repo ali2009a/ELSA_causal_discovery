@@ -863,7 +863,7 @@ def preprocess(df):
 
 def detectOutliers(distanceInfo, nanLabel, L=3):
 	D = distanceInfo[:,2]
-	outliersIndex, L =  tuneL(D, nanLabelPath, distanceInfo)
+	outliersIndex, L =  tuneL(D, nanLabel, distanceInfo)
 	return outliersIndex
 
 
