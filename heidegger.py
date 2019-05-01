@@ -785,6 +785,7 @@ def getControlSignal():
 def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 	# print "seq", seq
 	# print "label", seqLabel
+	alpha = 0.3
 	if weights is None:
 		F_index = 0.75
 		L = len(seq1)
@@ -795,14 +796,19 @@ def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 	sumDiff=0
 	for i in range(len(seq1)):
 		if seq1Label[i]:
-			diff =  penalty
+			diff =np.abs(seq1[i]- seq2[i])
+			diff =  (1-2*alpha)*diff+alpha
 		elif (not seq2Label is None) and seq2Label[i]:
-			diff =penalty
+			diff =np.abs(seq1[i]- seq2[i])
+			diff =  (1-2*alpha)*diff+alpha
 		else:
 			diff =np.abs(seq1[i]- seq2[i])
+		if np.isnan(diff):
+			diff= 1
 		sumDiff = sumDiff + diff*weights[i]
 	avgDiff = sumDiff/np.sum(weights)
-	
+	if np.isnan(avgDiff):
+		print "found Nan"
 	return avgDiff
 
 def measureSimilarity(var, signal, df, nanLabel):
@@ -857,13 +863,7 @@ def preprocess(df):
 
 def detectOutliers(distanceInfo, nanLabel, L=3):
 	D = distanceInfo[:,2]
-	# Outliers = DT < (np.median(DT) - L*MAD(DT))
-	# outliersIndex = np.where(Outliers)[0]
-	# outliersIndex = DT.argsort()[:100]
-	outliersIndex, L =  tuneL(D)
-        print "Len:", len(outliersIndex)
-	outliersIndex = removeUnknownMI(outliersIndex, distanceInfo, nanLabel)
-        print "Len2:",len(outliersIndex)
+	outliersIndex, L =  tuneL(D, nanLabelPath, distanceInfo)
 	return outliersIndex
 
 
@@ -895,7 +895,7 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 		print i
 		for j in range(0, len(outliersIndexC)):
 			distances = []
-			d= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set(trtVariable), False, i, j)
+			d= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, i, j)
 			distances.append(d)
 			d= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, i, j)
 			distances.append(d)
@@ -1037,21 +1037,34 @@ def evaluateLValues(distances, df, nanLabel):
 		print "Control:{}".format(len(outliersIndexC))
 		print "Treatment:{}".format(len(outliersIndexT))
 
-def tuneL(Data):
+def tuneL(Data, nanLabel, distanceInfo):
+	isKnown = []
+	for i in range(0,len(Data)):
+		index = int(distanceInfo[i,0])
+		w = int(distanceInfo[i,1])
+		col= "memIndex_{}".format(w)
+		isKnown.append(not nanLabel.loc[index,col])
+	isKnown = np.array(isKnown)
+	
+
 	UPPER_LIMIT=500
 	LOWER_LIMIT=100
 	Data[Data==0] = np.partition(np.unique(Data),1)[1]/10.0
 	Data = np.log(Data)
 	L=1
+	Median = np.median(Data[np.where(isKnown)])
+	MADVal = MAD(Data[np.where(isKnown)])
 	while (True):
-		Outliers = Data < (np.median(Data) - L*MAD(Data))
+		Outliers = (Data < (Median - L*MADVal))
+		Outliers =  np.logical_and(Outliers, isKnown) 
 		outliersIndex = np.where(Outliers)[0]
 		size= len(outliersIndex)
 		if(size<UPPER_LIMIT):
 			break
 		L=L+1
 	while (True):
-		Outliers = Data < (np.median(Data) - L*MAD(Data))
+		Outliers = (Data < (Median - L*MADVal))
+		Outliers =  np.logical_and(Outliers, isKnown) 
 		outliersIndex = np.where(Outliers)[0]
 		size= len(outliersIndex)
 		if(size>LOWER_LIMIT):
