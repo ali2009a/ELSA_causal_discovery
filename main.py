@@ -12,10 +12,10 @@ import scipy.signal as ss
 import numpy as np
 import math
 from numpy import diff
-
+from tqdm import tqdm
 
 #"scako" was removed because wave 1 had different scale
-trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #9
+trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
 confoundersVar = set(["indager", "hehelf","dhsex","totwq10_bu_s"])   #6
 binaryVariables = set(["scorg03","scorg06","scorg05","scorg07","dhsex"])
 targetVar = set(["memIndex"])  #1
@@ -98,13 +98,16 @@ def normalizeData(df):
 	#     df[col_norm] = (df[col] - df[col].min())/(df[col].max()- df[col].min())
 
 	for var in (trtmntVar|confoundersVar|targetVar|drvVar):
+		print "var:{}".format(var)
 		dfs=[]
 		for i in range(1,8):
 			col = "{}_{}".format(var,i)
 			dfs.append(pd.DataFrame( {var: df[col]}))
 		mergedDf = pd.concat(dfs)
 		mean= mergedDf[var].mean()
-		std = mergedDf[var].std()
+		len(np.where( mergedDf[var]))
+		std = mergedDf[var].std(ddof=1)
+		print "mean:{}, std:{}, size:{}".format(mean, std, len(mergedDf[var]))
 		minValue = mergedDf[var].min()
 		maxValue = mergedDf[var].max()
 		for i in range(1,8):
@@ -396,10 +399,17 @@ def computeMemIndex(row):
 
 
 def computeDistance(row1,row2, weights_local):
+	
+	print "row1" 
+	print row1
+	print "row2"
+	print row2
+	print "weights"
+	print weights_local
 	diff  = row1 - row2
 	diff = diff*weights_local
 	diff = diff[~np.isnan(diff)]
-	return np.linalg.norm(diff)
+	return np.linalg.norm(diff)/len(diff)
 
 
 def preProcessData(df):
@@ -435,19 +445,45 @@ def getTreatmentGroups(df, indVariable, waveNumber):
 	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
 	memIndexChangeVar = "memIndexChange_{}".format(waveNumber)
 
-	treatmentIndexes = df.index[df[varCurrWave] == 1].tolist()
-	controlIndexes = df.index[df[varCurrWave] == 0].tolist()	
 	
-	for i in treatmentIndexes:
-		if (df.loc[i][varPrevWave]==1) or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
-			treatmentIndexes.remove(i)
+	currentWave  = np.array(df[varCurrWave])
+	prevWave = np.array(df[varPrevWave])
+	memChange = np.isnan(df.loc[:,memIndexChangeVar]).astype(int)
 
-	for i in controlIndexes:
-		if df.loc[i][varPrevWave]==1 or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
-			controlIndexes.remove(i)
-	print "Group size:"
-	print len(controlIndexes)
-	print len(treatmentIndexes)
+
+	C = np.multiply(1-prevWave, 1-currentWave)
+	C=  np.multiply(C, 1-memChange)
+
+
+	T = np.multiply(1-prevWave, currentWave)
+	T=  np.multiply(T, 1-memChange)	
+
+
+
+
+	controlIndexes = np.where(C==1)[0]
+
+	treatmentIndexes = np.where(T==1)[0]
+
+
+
+
+	
+	# for i in treatmentIndexes:
+	# 	if (df.loc[i][varPrevWave]==1) or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
+	# 		treatmentIndexes.remove(i)
+	# print controlIndexes
+	# print "aaaaa"
+	# for i in controlIndexes:
+	# 	print "i:{}".format(i)
+	# 	if i==17:
+	# 		print "VVV"
+	# 		print df.loc[i][varPrevWave]
+	# 	if df.loc[i][varPrevWave]==1 or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
+	# 		controlIndexes.remove(i)
+	# print "Group size:"
+	# print len(controlIndexes)
+	# print len(treatmentIndexes)
 	return [controlIndexes, treatmentIndexes]
 
 
@@ -472,21 +508,24 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 			colName= "{}_n_{}".format(var,waveNumber)
 		confounders.append(colName)	
 		if var == "indager":
-			weights_local.append(3)
+			weights_local.append(1)
 		elif var == "baseMemIndex":
-			weights_local.append(3)
+			weights_local.append(1)
 		else:
 			weights_local.append(1)
 
-
+	print "conf:"
+	print confounders
 	confDF = df[confounders]
 	# print confounders
 
 	numTreat = len(treatmentIndexes)
 	numControl = len(controlIndexes)
 	C = np.zeros(shape = (numTreat, numControl))
-	for i in range(numTreat):
-		for j in range(numControl):
+	# for i in tqdm(range(numTreat)):
+	# 	for j in range(numControl):
+	for i in tqdm([0]):
+		for j in [1]:			
 			# print confDF.loc[treatmentIndexes[i]]
 			# print confDF.loc[treatmentIndexes[i]].values
 			# print weights_local
@@ -705,6 +744,14 @@ def f():
 		print "processing time:", elapsedTime/60		
 
 	return pVals
+
+
+
+def heidegger():
+	df = readData()
+	
+
+
 
 if __name__ == "__main__":
 	print "a"
