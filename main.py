@@ -400,12 +400,12 @@ def computeMemIndex(row):
 
 def computeDistance(row1,row2, weights_local):
 	
-	print "row1" 
-	print row1
-	print "row2"
-	print row2
-	print "weights"
-	print weights_local
+	# print "row1" 
+	# print row1
+	# print "row2"
+	# print row2
+	# print "weights"
+	# print weights_local
 	diff  = row1 - row2
 	diff = diff*weights_local
 	diff = diff[~np.isnan(diff)]
@@ -522,10 +522,10 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 	numTreat = len(treatmentIndexes)
 	numControl = len(controlIndexes)
 	C = np.zeros(shape = (numTreat, numControl))
-	# for i in tqdm(range(numTreat)):
-	# 	for j in range(numControl):
-	for i in tqdm([0]):
-		for j in [1]:			
+	for i in tqdm(range(numTreat)):
+		for j in range(numControl):
+	# for i in tqdm([0]):
+	# 	for j in [1]:			
 			# print confDF.loc[treatmentIndexes[i]]
 			# print confDF.loc[treatmentIndexes[i]].values
 			# print weights_local
