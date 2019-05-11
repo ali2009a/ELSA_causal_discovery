@@ -1,6 +1,6 @@
 import pandas as pd 
 import numpy as np 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pyplot
 import scipy.stats
 import re
 import time
@@ -443,47 +443,46 @@ def getTreatmentGroups(df, indVariable, waveNumber):
 	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
 	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
 	memIndexChangeVar = "memIndexChange_{}".format(waveNumber)
-
 	
 	currentWave  = np.array(df[varCurrWave])
 	prevWave = np.array(df[varPrevWave])
 	memChange = np.isnan(df.loc[:,memIndexChangeVar]).astype(int)
 
-
 	C = np.multiply(1-prevWave, 1-currentWave)
 	C=  np.multiply(C, 1-memChange)
-
 
 	T = np.multiply(1-prevWave, currentWave)
 	T=  np.multiply(T, 1-memChange)	
 
-
-
-
 	controlIndexes = np.where(C==1)[0]
-
 	treatmentIndexes = np.where(T==1)[0]
 
-
-
-
-	
-	# for i in treatmentIndexes:
-	# 	if (df.loc[i][varPrevWave]==1) or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
-	# 		treatmentIndexes.remove(i)
-	# print controlIndexes
-	# print "aaaaa"
-	# for i in controlIndexes:
-	# 	print "i:{}".format(i)
-	# 	if i==17:
-	# 		print "VVV"
-	# 		print df.loc[i][varPrevWave]
-	# 	if df.loc[i][varPrevWave]==1 or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
-	# 		controlIndexes.remove(i)
-	# print "Group size:"
-	# print len(controlIndexes)
-	# print len(treatmentIndexes)
 	return [controlIndexes, treatmentIndexes]
+
+def getTreatmentGroups2(df, indVariable, waveNumber):
+	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
+	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
+	varPrev2Wave = "{}_b_{}".format(indVariable, waveNumber-2)
+	memIndexChangeVar = "memIndexChange_{}".format(waveNumber)
+	
+	currentWave  = np.array(df[varCurrWave])
+	prevWave = np.array(df[varPrevWave])
+	prev2Wave = np.array(df[varPrev2Wave])
+	memChange = np.isnan(df.loc[:,memIndexChangeVar]).astype(int)
+
+	C = np.multiply(1- prev2Wave, 1-prevWave)
+	C = np.multiply(C, currentWave)
+	C=  np.multiply(C, 1-memChange)
+
+	T = np.multiply(1- prev2Wave, prevWave)
+	T = np.multiply(T, currentWave)
+	T=  np.multiply(T, 1-memChange)	
+
+	controlIndexes = np.where(C==1)[0]
+	treatmentIndexes = np.where(T==1)[0]
+
+	return [controlIndexes, treatmentIndexes]
+
 
 
 def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
@@ -728,21 +727,25 @@ def f():
 	for indVariable in trtmntVar:
 		pVals[indVariable] = []
 	
-	for indVariable in trtmntVar:
-	# for indVariable in ["heactb"]:
+	# for indVariable in trtmntVar:
+	for indVariable in ["scfrda", "heacta", "scorg03","scorg06", "scorg07","heskb"]:
 		s =time.time()
 		print indVariable
+		controlValues= []
+		treatmentValues= []
 		for waveNumber in [2,3,4,5,6,7]:
 		# for waveNumber in [5]:
 			print waveNumber
-			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
+			treatmentGroups = getTreatmentGroups2(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
 			matchedPairs = performMatching(C)
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
+			controlValues = controlValues+ targetValues[0]
+			treatmentValues = treatmentValues + targetValues[1]
 
-			pval = computePValue(targetValues[0], targetValues[1])
-			print "pval", pval
-			pVals[indVariable].append(pval)	
+		pval = computePValue(controlValues, treatmentValues)
+		print "pval", pval
+		pVals[indVariable].append(pval)	
 		elapsedTime = time.time()-s
 		print "processing time:", elapsedTime/60		
 
