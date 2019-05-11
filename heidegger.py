@@ -770,28 +770,32 @@ def interpolate(df):
 
 
 def getTreatmentSignal():
-	signal = [0,0,0,0,0,0,1]
-	weights =  np.array( [ 0.177978516 , 0.237304688 ,0.31640625  ,0.421875 , 0.5625 ,0.75,1])	
+	signal = np.array( [0,1])
+	weights =  np.array( [ 1,1])	
 
 	return (signal, weights)
 
 def getControlSignal():
-	signal = np.array([0,0,0,0,0,0,0])
-	weights = np.array( [ 0.177978516 , 0.237304688 ,0.31640625  ,0.421875 , 0.5625 ,0.75,1])	
+	signal = np.array([0,0])
+	weights = np.array( [  1, 1])	
 
 	return (signal, weights)
 
+def getMatchingWeights():
+    weights = np.array( [1])
+    return weights
 
 def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 	# print "seq", seq
 	# print "label", seqLabel
 	alpha = 0.3
-	if weights is None:
-		F_index = 0.75
-		L = len(seq1)
-		weights= np.zeros(L)
-		for i in range(0,L):
-			weights[i] = F_index ** ( (L-1)-i);
+#	if weights is None:
+#		F_index = 0.75
+#		L = len(seq1)
+#		weights= np.zeros(L)
+#		for i in range(0,L):
+#			weights[i] = F_index ** ( (L-1)-i);
+        weights = weights[-len(seq1):]
 	penalty =0.5
 	sumDiff=0
 	for i in range(len(seq1)):
@@ -818,7 +822,7 @@ def measureSimilarity(var, signal, df, nanLabel):
 	distanceValues[:] = np.nan
 
 
-
+        windowLength = len(signal[0])
 	counter= 0
 	for index in tqdm(range(0, len(df))):
 	# for index in range(0,5000):
@@ -826,7 +830,7 @@ def measureSimilarity(var, signal, df, nanLabel):
 		for w in range(8,15):
 			# print "w", w
 			cols= []
-			for i in range(w-6,w+1):
+			for i in range(w-(windowLength-1),w+1):
 
 				col = "{}_n_{}".format(var,i)
 				cols.append(col)
@@ -881,9 +885,9 @@ def removeUnknownMI(outliersIndex, distanceInfo, nanLabel):
 def computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar, i, j):
 		sumDiff = 0
 		for var in (varSet):
-			seqs_T = extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar)
-			seqs_C = extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar)
-			diff = computeDistance(seqs_T[0], seqs_C[0], seqs_T[1], seqs_C[1])
+			seqs_T = extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar, length = len(getMatchingWeights()))
+			seqs_C = extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar, length = len(getMatchingWeights()))
+			diff = computeDistance(seqs_T[0], seqs_C[0], seqs_T[1], seqs_C[1], weights= getMatchingWeights())
 			sumDiff = sumDiff + diff
 		return sumDiff/len(varSet)	
 
@@ -895,13 +899,13 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 		print i
 		for j in range(0, len(outliersIndexC)):
 			distances = []
-			d= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, i, j)
-			distances.append(d)
-			d= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, i, j)
-			distances.append(d)
-			d=computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, i, j)
-			distances.append(d)
-			C[i,j]= np.mean(distances)
+			trtDist= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, i, j)
+			#distances.append(d)
+			confDist= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, i, j)
+			#distances.append(d)
+			targetDist=computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, i, j)
+			#distances.append(d)
+			C[i,j]= (trtDist + confDist + 50*targetDist)/52
 	return C	
 
 def dump2DMatrix(C, var, outputPrefix):
@@ -925,13 +929,13 @@ def heidegger():
 	f = open("result.txt","w")
 
 	# for var in trtmntVar:
-	for var in ["scfrda","scfrdg","heacta","heactc", "scorg03","scorg06","scorg05","scorg07"]:
+	for var in ["heactb", "scorg05", "scorg03"]:
 		print "evaluting {}".format(var)
 		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
 		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
 
-		distanceInfoT[:,2].tofile("Treatment_Distance_{}.csv".format(var),sep=',') ## for debug
-		distanceInfoC[:,2].tofile("Control_Distance_{}.csv".format(var),sep=',')   ## for debug
+		#distanceInfoT[:,2].tofile("Treatment_Distance_{}.csv".format(var),sep=',') ## for debug
+		#distanceInfoC[:,2].tofile("Control_Distance_{}.csv".format(var),sep=',')   ## for debug
 		
 		outliersIndexT = detectOutliers(distanceInfoT, nanLabel)
 		outliersIndexC = detectOutliers(distanceInfoC, nanLabel)
@@ -1006,8 +1010,8 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 	return [memtotC, memtotT] 	
 
 
-def extractSeq(df, nanLabel, var, index, w, isTargetVar):
-	s = int(w-6)
+def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
+	s = int(w-(length-1))
 	e = int(w+1)
 	if isTargetVar:
 		e = int(w)
@@ -1054,14 +1058,20 @@ def tuneL(Data, nanLabel, distanceInfo):
 	L=1
 	Median = np.median(Data[np.where(isKnown)])
 	MADVal = MAD(Data[np.where(isKnown)])
+        if MADVal==0:
+           MADVal=0.01
+        print "MAD:{}".format(MADVal)
+        #print "1:{}".format(L)
 	while (True):
 		Outliers = (Data < (Median - L*MADVal))
 		Outliers =  np.logical_and(Outliers, isKnown) 
 		outliersIndex = np.where(Outliers)[0]
 		size= len(outliersIndex)
+                print "size:{}, L:{}".format(size,L)
 		if(size<UPPER_LIMIT):
 			break
 		L=L+1
+        #print "2:{}".format(L)
 	while (True):
 		Outliers = (Data < (Median - L*MADVal))
 		Outliers =  np.logical_and(Outliers, isKnown) 
@@ -1070,6 +1080,7 @@ def tuneL(Data, nanLabel, distanceInfo):
 		if(size>LOWER_LIMIT):
 			break
 		L=L-1
+        #print "3:{}".format(L)
 	if (len(outliersIndex)>UPPER_LIMIT):
 		outliersIndex = np.random.choice(outliersIndex, UPPER_LIMIT, replace=False)
 	return (outliersIndex, L)
@@ -1103,6 +1114,20 @@ def drawKmeanDiagram(Data):
 	plt.ylabel('Sum_of_squared_distances')
 	plt.title('Elbow Method For Optimal k')
 	plt.show()
+
+
+def computeDiff(ids, df):
+    diffs = []
+    for pair in ids:
+        index, w= pair.rstrip().split(" ")
+        index = int(index)
+        w= int(w)
+        col = "memIndex_{}".format(w)
+        col_prev = "memIndex_{}".format(w-1)
+        diffs.append(df.loc[index,col]-df.loc[index,col_prev])
+    return diffs
+
+
 
 if __name__ == "__main__":
 	print "a"
