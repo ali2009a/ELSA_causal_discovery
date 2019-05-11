@@ -712,11 +712,15 @@ def computeLagForAllVars(df):
 		print "examining ", var
 		res= computeLag(df,var, list(targetVar)[0])
 
+dfPath="ELSA1.pkl"
 
 def f():
 	# start_time = time.time()
 
-	df = readData()
+	if (os.path.isfile(dfPath)):
+		df = pd.read_pickle(dfPath)
+	else:
+		df = readData()
 	df = preProcessData(df)
 
 
