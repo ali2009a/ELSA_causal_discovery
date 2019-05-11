@@ -10,7 +10,7 @@ def harmonize(value):
 def binarize(value):
 	if (value == 0):
 		return 0
-	elif (value>=5):
+	elif (value>=3):
 		return 1
 	else:
 		return 2
