@@ -377,7 +377,7 @@ def addMemIndex(df):
 
 def computeMemIndexChange(row, waveNumber):
 	memtotVarCur = "memIndex_{}".format(waveNumber) 
-	memtotVarPrev = "memIndex_{}".format(waveNumber-1)
+	memtotVarPrev = "memIndex_{}".format(waveNumber-2)
 	return row[memtotVarCur] - row[memtotVarPrev]
 
 
@@ -416,20 +416,20 @@ def preProcessData(df):
 	# df= df.dropna(subset=["memIndex_1", "memIndex_", "memIndex", "memIndex","memIndex","memIndex","memIndex"])
     
 	df["memIndexChange_1"]=  np.nan
-	df["memIndexChange_2"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
-	df["memIndexChange_3"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
-	df["memIndexChange_4"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	df["memIndexChange_2"] = np.nan
+	df["memIndexChange_3"] = df.apply(computeMemIndexChange,waveNumber=3,axis=1)
+	df["memIndexChange_4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
 	df["memIndexChange_5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
-	df["memIndexChange_6"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
-	df["memIndexChange_7"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+	df["memIndexChange_6"] = df.apply(computeMemIndexChange,waveNumber=6,axis=1)
+	df["memIndexChange_7"] = df.apply(computeMemIndexChange,waveNumber=7,axis=1)
 
 
-	df["baseMemIndex_7"] = df["memIndex_6"]
-	df["baseMemIndex_6"] = df["memIndex_5"]
-	df["baseMemIndex_5"] = df["memIndex_4"]
-	df["baseMemIndex_4"] = df["memIndex_3"]
-	df["baseMemIndex_3"] = df["memIndex_2"]
-	df["baseMemIndex_2"] = df["memIndex_1"]
+	df["baseMemIndex_7"] = df["memIndex_5"]
+	df["baseMemIndex_6"] = df["memIndex_4"]
+	df["baseMemIndex_5"] = df["memIndex_3"]
+	df["baseMemIndex_4"] = df["memIndex_2"]
+	df["baseMemIndex_3"] = df["memIndex_1"]
+	df["baseMemIndex_2"] = np.nan
 	df["baseMemIndex_1"] = np.nan
 
 
@@ -471,7 +471,7 @@ def getTreatmentGroups2(df, indVariable, waveNumber):
 	memChange = np.isnan(df.loc[:,memIndexChangeVar]).astype(int)
 
 	C = np.multiply(1- prev2Wave, 1-prevWave)
-	C = np.multiply(C, currentWave)
+	C = np.multiply(C,1- currentWave)
 	C=  np.multiply(C, 1-memChange)
 
 	T = np.multiply(1- prev2Wave, prevWave)
@@ -512,8 +512,8 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 		else:
 			weights_local.append(1)
 
-	print "conf:"
-	print confounders
+	#print "conf:"
+	#print confounders
 	confDF = df[confounders]
 	# print confounders
 
@@ -576,14 +576,14 @@ def performMatching(C):
 				costs.append(C[L,R])
 
 	costs = np.array(costs)
-	passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]<0.1 ]			
+	passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]< 0.3 ]			
 	# m = Munkres()
 	# indexes = m.compute(C)
 	return passedPairs
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
 	memTotChangeVar = "memIndex_{}".format(waveNumber)
-	prevWave = "memIndex_{}".format(waveNumber-1)
+	prevWave = "memIndex_{}".format(waveNumber-2)
 	controlIndexes = treatmentGroups[0]
 	treatmentIndexes = treatmentGroups[1]
 	memtotT = [  df.loc[treatmentIndexes[i[0]]][memTotChangeVar]  for i in indexes]
@@ -737,18 +737,18 @@ def f():
 	for indVariable in trtmntVar:
 		pVals[indVariable] = []
 	
-	# for indVariable in trtmntVar:
-	for indVariable in ["heskb", "scfrda", "scorg05", "scfrdg","scfrdm", "heactb","heactc", "scorg03","scorg06","scorg07","heacta"]:
+	for indVariable in trtmntVar:
+	#for indVariable in [ "heactc","heskb", "scfrda", "scorg05", "scfrdg","scfrdm", "heactb", "scorg03","scorg06","scorg07","heacta"]:
 		s =time.time()
 		print indVariable
 		controlValues= []
 		treatmentValues= []
 		controlValuesPrev = []
 		treatmentValuesPrev = []
-		for waveNumber in [2,3,4,5,6,7]:
+		for waveNumber in [3,4,5,6,7]:
 		# for waveNumber in [5]:
 			print waveNumber
-			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
+			treatmentGroups = getTreatmentGroups2(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
 			matchedPairs = performMatching(C)
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
@@ -759,13 +759,14 @@ def f():
 			pval = computePValue(targetValues[0], targetValues[1])
 			print "len:{}".format(len(targetValues[0]))
 			print "pval", pval
-			print "C:{}, T:{}, PrevC:{}, prevT:{}".format(np.mean(controlValues), np.mean(treatmentValues), np.mean(controlValuesPrev), np.mean(treatmentValuesPrev))	
+			print "C:{}, T:{}, PrevC:{}, prevT:{}".format(np.mean(targetValues[0]), np.mean(targetValues[1]), np.mean(targetValues[2]), np.mean(targetValues[3]))	
 
 		print "len:{}".format(len(controlValues))
 		pval = computePValue(controlValues, treatmentValues)
 		print "pval", pval
 		pVals[indVariable].append(pval)	
 		elapsedTime = time.time()-s
+		print "C:{}, T:{}, PrevC:{}, prevT:{}".format(np.mean(controlValues), np.mean(treatmentValues), np.mean(controlValuesPrev), np.mean(treatmentValuesPrev))
 		print "processing time:", elapsedTime/60		
 
 	return (pVals, controlValues, treatmentValues, controlValuesPrev, treatmentValuesPrev) 
