@@ -562,6 +562,8 @@ def performMatching(C):
 
 	command = "hungarian/test"
 	run_cmd(command)
+	
+	costs = []
 	with open('matching.txt', 'r') as f:
 		indexes = []
 		for line in f:
@@ -571,18 +573,26 @@ def performMatching(C):
 			if R!= -1:
 				pair = (L,R)
 				indexes.append(pair)
+				costs.append(C[L,R])
 
+	costs = np.array(costs)
+	passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]<0.1 ]			
 	# m = Munkres()
 	# indexes = m.compute(C)
-	return indexes
+	return passedPairs
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
 	memTotChangeVar = "memIndex_{}".format(waveNumber)
+	prevWave = "memIndex_{}".format(waveNumber-1)
 	controlIndexes = treatmentGroups[0]
 	treatmentIndexes = treatmentGroups[1]
 	memtotT = [  df.loc[treatmentIndexes[i[0]]][memTotChangeVar]  for i in indexes]
 	memtotC = [  df.loc[controlIndexes[i[1]]][memTotChangeVar]  for i in indexes]
-	return [memtotC, memtotT]
+
+	memtotT_P = [  df.loc[treatmentIndexes[i[0]]][prevWave]  for i in indexes]
+	memtotC_P = [  df.loc[controlIndexes[i[1]]][prevWave]  for i in indexes]
+
+	return [memtotC, memtotT,  memtotC_P, memtotT_P]
 
 def computePValue(X,Y):
 	res= scipy.stats.wilcoxon(X,Y,"wilcox")
@@ -727,12 +737,14 @@ def f():
 	for indVariable in trtmntVar:
 		pVals[indVariable] = []
 	
-	for indVariable in trtmntVar:
-	#for indVariable in ["scfrda", "heacta", "scorg03","scorg06", "scorg07","heskb"]:
+	# for indVariable in trtmntVar:
+	for indVariable in ["heskb", "scfrda", "scorg05", "scfrdg","scfrdm", "heactb","heactc", "scorg03","scorg06","scorg07","heacta"]:
 		s =time.time()
 		print indVariable
 		controlValues= []
 		treatmentValues= []
+		controlValuesPrev = []
+		treatmentValuesPrev = []
 		for waveNumber in [2,3,4,5,6,7]:
 		# for waveNumber in [5]:
 			print waveNumber
@@ -742,15 +754,21 @@ def f():
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 			controlValues = controlValues+ targetValues[0]
 			treatmentValues = treatmentValues + targetValues[1]
+			controlValuesPrev = controlValuesPrev+ targetValues[2]
+			treatmentValuesPrev = treatmentValuesPrev + targetValues[3]
+			pval = computePValue(targetValues[0], targetValues[1])
+			print "len:{}".format(len(targetValues[0]))
+			print "pval", pval
+			print "C:{}, T:{}, PrevC:{}, prevT:{}".format(np.mean(controlValues), np.mean(treatmentValues), np.mean(controlValuesPrev), np.mean(treatmentValuesPrev))	
 
-                print "len:{}".format(len(controlValues))
+		print "len:{}".format(len(controlValues))
 		pval = computePValue(controlValues, treatmentValues)
 		print "pval", pval
 		pVals[indVariable].append(pval)	
 		elapsedTime = time.time()-s
 		print "processing time:", elapsedTime/60		
 
-	return pVals
+	return (pVals, controlValues, treatmentValues, controlValuesPrev, treatmentValuesPrev) 
 
 
 
