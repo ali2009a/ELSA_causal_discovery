@@ -508,7 +508,7 @@ def ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber):
 		if var == "indager":
 			weights_local.append(1)
 		elif var == "baseMemIndex":
-			weights_local.append(1)
+			weights_local.append(100)
 		else:
 			weights_local.append(1)
 
@@ -577,7 +577,7 @@ def performMatching(C):
 	return indexes
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
-	memTotChangeVar = "memIndexChange_{}".format(waveNumber)
+	memTotChangeVar = "memIndex_{}".format(waveNumber)
 	controlIndexes = treatmentGroups[0]
 	treatmentIndexes = treatmentGroups[1]
 	memtotT = [  df.loc[treatmentIndexes[i[0]]][memTotChangeVar]  for i in indexes]
@@ -727,8 +727,8 @@ def f():
 	for indVariable in trtmntVar:
 		pVals[indVariable] = []
 	
-	# for indVariable in trtmntVar:
-	for indVariable in ["scfrda", "heacta", "scorg03","scorg06", "scorg07","heskb"]:
+	for indVariable in trtmntVar:
+	#for indVariable in ["scfrda", "heacta", "scorg03","scorg06", "scorg07","heskb"]:
 		s =time.time()
 		print indVariable
 		controlValues= []
@@ -736,13 +736,14 @@ def f():
 		for waveNumber in [2,3,4,5,6,7]:
 		# for waveNumber in [5]:
 			print waveNumber
-			treatmentGroups = getTreatmentGroups2(df,indVariable, waveNumber)
+			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
 			matchedPairs = performMatching(C)
 			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 			controlValues = controlValues+ targetValues[0]
 			treatmentValues = treatmentValues + targetValues[1]
 
+                print "len:{}".format(len(controlValues))
 		pval = computePValue(controlValues, treatmentValues)
 		print "pval", pval
 		pVals[indVariable].append(pval)	
