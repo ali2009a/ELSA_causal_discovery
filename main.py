@@ -375,10 +375,17 @@ def addMemIndex(df):
 	return df
 
 
-def computeMemIndexChange(row, waveNumber):
+def computeMemIndexChange2(row, waveNumber):
 	memtotVarCur = "memIndex_{}".format(waveNumber) 
 	memtotVarPrev = "memIndex_{}".format(waveNumber-2)
 	return row[memtotVarCur] - row[memtotVarPrev]
+
+
+def computeMemIndexChange(row, waveNumber):
+        memtotVarCur = "memIndex_{}".format(waveNumber)
+        memtotVarPrev = "memIndex_{}".format(waveNumber-1)
+        return row[memtotVarCur] - row[memtotVarPrev]
+
 
 
 
@@ -411,17 +418,17 @@ def computeDistance(row1,row2, weights_local):
 	return np.linalg.norm(diff)/len(diff)
 
 
-def preProcessData(df):
+def preProcessData2(df):
 	# df= df.dropna(axis=0, how="any")
 	# df= df.dropna(subset=["memIndex_1", "memIndex_", "memIndex", "memIndex","memIndex","memIndex","memIndex"])
     
 	df["memIndexChange_1"]=  np.nan
 	df["memIndexChange_2"] = np.nan
-	df["memIndexChange_3"] = df.apply(computeMemIndexChange,waveNumber=3,axis=1)
-	df["memIndexChange_4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
-	df["memIndexChange_5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
-	df["memIndexChange_6"] = df.apply(computeMemIndexChange,waveNumber=6,axis=1)
-	df["memIndexChange_7"] = df.apply(computeMemIndexChange,waveNumber=7,axis=1)
+	df["memIndexChange_3"] = df.apply(computeMemIndexChange2,waveNumber=3,axis=1)
+	df["memIndexChange_4"] = df.apply(computeMemIndexChange2,waveNumber=4,axis=1)
+	df["memIndexChange_5"] = df.apply(computeMemIndexChange2,waveNumber=5,axis=1)
+	df["memIndexChange_6"] = df.apply(computeMemIndexChange2,waveNumber=6,axis=1)
+	df["memIndexChange_7"] = df.apply(computeMemIndexChange2,waveNumber=7,axis=1)
 
 
 	df["baseMemIndex_7"] = df["memIndex_5"]
@@ -437,6 +444,35 @@ def preProcessData(df):
 	
 	
 	return df
+
+
+def preProcessData(df):
+        # df= df.dropna(axis=0, how="any")
+        # df= df.dropna(subset=["memIndex_1", "memIndex_", "memIndex", "memIndex","memIndex","memIndex","memIndex"])
+
+        df["memIndexChange_1"]=  np.nan
+        df["memIndexChange_2"] = df.apply(computeMemIndexChange,waveNumber=2,axis=1)
+        df["memIndexChange_3"] = df.apply(computeMemIndexChange,waveNumber=3,axis=1)
+        df["memIndexChange_4"] = df.apply(computeMemIndexChange,waveNumber=4,axis=1)
+        df["memIndexChange_5"] = df.apply(computeMemIndexChange,waveNumber=5,axis=1)
+        df["memIndexChange_6"] = df.apply(computeMemIndexChange,waveNumber=6,axis=1)
+        df["memIndexChange_7"] = df.apply(computeMemIndexChange,waveNumber=7,axis=1)
+
+
+        df["baseMemIndex_7"] = df["memIndex_6"]
+        df["baseMemIndex_6"] = df["memIndex_5"]
+        df["baseMemIndex_5"] = df["memIndex_4"]
+        df["baseMemIndex_4"] = df["memIndex_3"]
+        df["baseMemIndex_3"] = df["memIndex_2"]
+        df["baseMemIndex_2"] = df["memIndex_1"]
+        df["baseMemIndex_1"] = np.nan
+
+
+        df = normalizeData(df)
+
+
+        return df
+
 
 
 def getTreatmentGroups(df, indVariable, waveNumber):
@@ -581,7 +617,7 @@ def performMatching(C):
 	# indexes = m.compute(C)
 	return passedPairs
 
-def getTargetValues(df, treatmentGroups, indexes, waveNumber):
+def getTargetValues2(df, treatmentGroups, indexes, waveNumber):
 	memTotChangeVar = "memIndex_{}".format(waveNumber)
 	prevWave = "memIndex_{}".format(waveNumber-2)
 	controlIndexes = treatmentGroups[0]
@@ -593,6 +629,25 @@ def getTargetValues(df, treatmentGroups, indexes, waveNumber):
 	memtotC_P = [  df.loc[controlIndexes[i[1]]][prevWave]  for i in indexes]
 
 	return [memtotC, memtotT,  memtotC_P, memtotT_P]
+
+
+def getTargetValues(df, treatmentGroups, indexes, waveNumber):
+        memTotChangeVar = "memIndex_{}".format(waveNumber)
+        prevWave = "memIndex_{}".format(waveNumber-1)
+        controlIndexes = treatmentGroups[0]
+        treatmentIndexes = treatmentGroups[1]
+        memtotT = [  df.loc[treatmentIndexes[i[0]]][memTotChangeVar]  for i in indexes]
+        memtotC = [  df.loc[controlIndexes[i[1]]][memTotChangeVar]  for i in indexes]
+
+        memtotT_P = [  df.loc[treatmentIndexes[i[0]]][prevWave]  for i in indexes]
+        memtotC_P = [  df.loc[controlIndexes[i[1]]][prevWave]  for i in indexes]
+
+        return [memtotC, memtotT,  memtotC_P, memtotT_P]
+
+
+
+
+
 
 def computePValue(X,Y):
 	res= scipy.stats.wilcoxon(X,Y,"wilcox")
@@ -729,7 +784,7 @@ def f():
 		df = pd.read_pickle(dfPath)
 	else:
 		df = readData()
-	df = preProcessData(df)
+	df = preProcessData(df)  #alternative
 
 
 
@@ -737,8 +792,8 @@ def f():
 	for indVariable in trtmntVar:
 		pVals[indVariable] = []
 	
-	for indVariable in trtmntVar:
-	#for indVariable in [ "heactc","heskb", "scfrda", "scorg05", "scfrdg","scfrdm", "heactb", "scorg03","scorg06","scorg07","heacta"]:
+	#for indVariable in trtmntVar:
+	for indVariable in ["heactb", "scorg05","heactc","heskb", "scfrda", "scfrdg","scfrdm", "scorg03","scorg06","scorg07","heacta"]:
 		s =time.time()
 		print indVariable
 		controlValues= []
@@ -748,10 +803,10 @@ def f():
 		for waveNumber in [3,4,5,6,7]:
 		# for waveNumber in [5]:
 			print waveNumber
-			treatmentGroups = getTreatmentGroups2(df,indVariable, waveNumber)
+			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber) #alternative
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
 			matchedPairs = performMatching(C)
-			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
+			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber) #alternative
 			controlValues = controlValues+ targetValues[0]
 			treatmentValues = treatmentValues + targetValues[1]
 			controlValuesPrev = controlValuesPrev+ targetValues[2]
