@@ -1,6 +1,7 @@
 import pandas as pd 
 import numpy as np 
 import matplotlib.pyplot as pyplot
+import matplotlib.pyplot as plt
 import scipy.stats
 import re
 import time
@@ -12,6 +13,9 @@ import numpy as np
 import math
 from numpy import diff
 from tqdm import tqdm
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_samples, silhouette_score
+
 
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
@@ -792,8 +796,8 @@ def f():
 	for indVariable in trtmntVar:
 		pVals[indVariable] = []
 	
-	#for indVariable in trtmntVar:
-	for indVariable in ["heactb", "scorg05","heactc","heskb", "scfrda", "scfrdg","scfrdm", "scorg03","scorg06","scorg07","heacta"]:
+	for indVariable in trtmntVar:
+	# for indVariable in ["heskb"]:
 		s =time.time()
 		print indVariable
 		controlValues= []
@@ -828,9 +832,120 @@ def f():
 
 
 
+
+def getMIs(df):
+	cols = []
+	for i in range(1,8):
+		name = "memIndex_{}".format(i)
+		cols.append(name)
+	return df[cols]
+	
+
+def getDerivative(df):
+	return np.diff( df.as_matrix() ,axis=1)
+
+
 def heidegger():
 	df = readData()
 	
+
+
+def harmonizeBias(D):
+	for i in range(0,len(D)):
+		D[i] = D[i]-D[i][0]
+	return D
+
+
+
+def computeSimilarityMatrix(D):
+	N=len(D)
+	S = np.zeros((N,N))
+	for i in  tqdm(range(0,N)):
+		for j in range(0,N):
+			diff = D[i]-D[j]
+			S[i][j] = np.linalg.norm(diff)
+	return S
+
+def runKMean(D, k):
+
+	Sum_of_squared_distances = []
+	silhouette_scores = []
+	K = range(2,10)
+	for k in K:
+	    km = KMeans(n_clusters=k)
+	    km = km.fit(D)
+	    labels= km.labels_
+	    print len(labels)
+	    print len(D)
+
+	    Sum_of_squared_distances.append(km.inertia_)
+	    silhouette_scores.append(silhouette_score(D, labels))
+
+	# plt.plot(K, Sum_of_squared_distances, 'bx-')
+	# plt.xlabel('k')
+	# plt.ylabel('Sum_of_squared_distances')
+	# plt.title('Elbow Method For Optimal k')
+	# plt.show()
+
+	plt.plot(K, silhouette_scores, 'bx-')
+	plt.xlabel('k')
+	plt.ylabel('silhouette scores')
+	# plt.title('Elbow Method For Optimal k')
+	plt.show()
+
+
+	return Sum_of_squared_distances
+
+	kmeans = KMeans(n_clusters=k)
+	kmeans.fit(D)
+	centroids = kmeans.cluster_centers_
+
+	for i in range(0,k):
+		print len(np.where(kmeans.labels_==i)[0])
+		np.where(kmeans.labels_==i)
+
+
+	T = pd.DataFrame()
+	for i in range(0,k):
+		T[len(np.where(kmeans.labels_==i)[0])]=centroids[i]
+	# T.plot(subplots=True, legend=False)
+	T.plot()	
+	plt.show()
+	return kmeans
+
+def runKMeanWithSimilarity(S, D, k):
+
+	# Sum_of_squared_distances = []
+	# K = range(1,30)
+	# for k in K:
+	#     km = KMeans(n_clusters=k)
+	#     km = km.fit(D)
+	#     Sum_of_squared_distances.append(km.inertia_)
+	# plt.plot(K, Sum_of_squared_distances, 'bx-')
+	# plt.xlabel('k')
+	# plt.ylabel('Sum_of_squared_distances')
+	# plt.title('Elbow Method For Optimal k')
+	# plt.show()
+
+	# return Sum_of_squared_distances
+	kmeans = KMeans(n_clusters=k)
+	kmeans.fit(D)
+	centroids = kmeans.cluster_centers_
+	centroids =zeros((k,D.shape[1]))
+	L = kmeans.labels_
+
+	for i in range(0,k):
+		np.average(np.where(L==i)[0],0)
+
+	T = pd.DataFrame()
+	for i in range(0,k):
+		T[i]=centroids[i]
+	T.plot(subplots=True, legend=False)	
+	plt.show()
+	return kmeans
+
+
+
 
 
 
