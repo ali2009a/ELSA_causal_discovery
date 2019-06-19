@@ -28,6 +28,8 @@ drvVar = set(["memIndexChange", "baseMemIndex"])  #1
 allVar = trtmntVar|confoundersVar|targetVar
 WAVE_NUM=7
 weights = {"scfrda":1,"scfrdg":1,"scfrdm":1,"heacta":1, "heactb":1,"heactc":1, "scorg03":1,"scorg06":1,"scorg05":1,"scorg07":1,"heskb":1,"indager":2, "hehelf":1,"dhsex":1,"totwq10_bu_s":1,"baseMemIndex":1}
+reverseVars = ["heacta", "heactb", "heactc", "scfrdg", "scfrda"]
+
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
 REFUSAL=-9
@@ -857,7 +859,20 @@ def MAD(data, axis=None):
     return res/0.67
 
 
+def fixReverseDir(df):
+	for var in (reverseVars):
+		dfs=[]
+		for i in range(1,8):
+			col = "{}_{}".format(var,i)
+			dfs.append(pd.DataFrame( {var: df[col]}))
+		maxValue = mergedDf[var].max()
+		for i in range(1,8):
+			col = "{}_{}".format(var,i)
+			df[col] = maxValue - df[col]
+	return df
+
 def preprocess(df):
+	df = fixReverseDir(df)
 	df= normalizeData(df)
 	df= expandData(df)
 	nanLabel = df.apply(checkIsNan) 
