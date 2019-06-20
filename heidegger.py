@@ -784,7 +784,7 @@ def getControlSignal():
 	return (signal, weights)
 
 def getMatchingWeights():
-    weights = np.array( [1])
+    weights = np.array( [0.5,1])
     return weights
 
 def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
@@ -865,6 +865,7 @@ def fixReverseDir(df):
 		for i in range(1,8):
 			col = "{}_{}".format(var,i)
 			dfs.append(pd.DataFrame( {var: df[col]}))
+		mergedDf = pd.concat(dfs)
 		maxValue = mergedDf[var].max()
 		for i in range(1,8):
 			col = "{}_{}".format(var,i)
@@ -922,6 +923,60 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 			#distances.append(d)
 			C[i,j]= (trtDist + confDist + 50*targetDist)/52
 	return C	
+
+
+
+
+def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar):
+		
+		alpha = 0.3
+		if (isTargetVar):
+			effectiveWeights = getMatchingWeights()[1:]
+		else:
+			effectiveWeights = getMatchingWeights()
+
+		winLen = len(effectiveWeights)
+		
+		costSum = np.zeros(shape = (len(outliersIndexT), winLen))
+
+		for var in (varSet):
+			T = np.zeros(shape = (len(outliersIndexT), winLen))
+			C = np.zeros(shape = (len(outliersIndexC), winLen))
+			TL = np.zeros(shape = (len(outliersIndexT), winLen))
+			CL = np.zeros(shape = (len(outliersIndexC), winLen))
+			
+			for i in range(0,len(outliersIndexT)):
+				seqs =extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar, length = len(getMatchingWeights()))
+				T[i,:] = seqs[0][:winLen] # to discard memIndex for the current weight (right most one)
+				TL[i,:] = seqs[1][:winLen]
+
+			for j in range(0,len(outliersIndexC)):
+				seqs =extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar, length = len(getMatchingWeights()))
+				C[i,:] = seqs[0][:winLen]
+				CL[i,:] = seqs[1][:winLen]
+
+			T = T.reshape(T.shape[0], 1, T.shape[1]) 
+			TL = TL.reshape(TL.shape[0], 1, TL.shape[1])
+
+			diff = np.abs(T-C)
+			isNan = np.logical_or(TL,CL)
+			penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)
+			weightedDiff  = penalizedDiff * getMatchingWeights()[-winLen:]  # to get the right most weights 
+			costSum =np.sum(diff,axis=2)
+			varCost = costSum / np.sum(getMatchingWeights())
+			costSum = costSum + varCost
+
+		return costSum/len(varSet)			
+
+
+def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC):
+	# C = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))	
+	trtDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False)
+	confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False)
+	targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True)
+	C= (trtDist + confDist + 50*targetDist)/52
+	return C
+
 
 def dump2DMatrix(C, var, outputPrefix):
 	r,c = C.shape
@@ -1028,8 +1083,8 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
 	s = int(w-(length-1))
 	e = int(w+1)
-	if isTargetVar:
-		e = int(w)
+	# if isTargetVar:
+	# 	e = int(w)
 	cols= []
 	for k in range(s,e):
 		col = "{}_n_{}".format(var,k)
