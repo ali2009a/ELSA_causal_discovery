@@ -844,6 +844,44 @@ def measureSimilarity(var, signal, df, nanLabel):
 			counter = counter+1		
 	return distanceValues
 
+
+def measureSimilarity2(var, signal, df, nanLabel):
+	[samplesNum, columnsNum] = df.shape
+	distanceValues = np.empty((samplesNum*WAVE_NUM,3))
+	distanceValues[:] = np.nan
+	winLen = len(signal[0])
+	signalSeq= signal[0]
+	weights = signal[1]
+	seqLabel = np.zeros((winLen,), dtype=int)
+	
+	S = np.zeros(shape = (samplesNum*WAVE_NUM, winLen))
+	SL = np.zeros(shape = (samplesNum*WAVE_NUM, winLen))
+	counter= 0
+	for index in tqdm(range(0, len(df))):
+		for w in range(8,15):
+			seqs= extractSeq(df, nanLabel, var, index, w, False, length = winLen)
+			S[counter,:]= seqs[0]
+			SL[counter,:]= seqs[1]
+			distanceValues[counter,:]=  [int(index), int(w), np.nan]
+			counter = counter+1
+
+	alpha =0.3
+	S = S.reshape(S.shape[0], 1, S.shape[1]) 
+	SL = SL.reshape(SL.shape[0], 1, SL.shape[1])
+
+	diff = np.abs(S- signalSeq )
+	isNan = np.logical_or(SL, seqLabel)
+	penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)
+	penalizedDiff =  np.isnan(penalizedDiff)*np.ones(penalizedDiff.shape, dtype=int) + (1 - np.isnan(penalizedDiff))*penalizedDiff
+	weightedDiff  = penalizedDiff * weights  # to get the right most weights 
+	costSum =np.sum(diff,axis=2)
+	varCost = costSum / np.sum(getMatchingWeights())
+	distanceValues[:,2] = varCost.reshape(len(distanceValues))
+	return distanceValues
+
+
+
+
 def checkIsNan(x):
    return np.isnan(x)
 
