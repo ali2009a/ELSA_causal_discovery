@@ -549,7 +549,7 @@ def performMatching(C):
 				costs.append(C[L,R])
 
 	costs = np.array(costs)
-	passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]< 0.3 ]			
+	passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]< 0.01 ]			
 	return passedPairs
 
 
@@ -998,14 +998,23 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 			
 			for i in range(0,len(outliersIndexT)):
 				seqs =extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar, length = len(getMatchingWeights()))
+				# print "seq T:", seqs
 				T[i,:] = seqs[0][:winLen] # to discard memIndex for the current weight (right most one)
+				# T[i,:] = np.array([0.2333])
 				TL[i,:] = seqs[1][:winLen]
 
 			for j in range(0,len(outliersIndexC)):
 				seqs =extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar, length = len(getMatchingWeights()))
-				C[i,:] = seqs[0][:winLen]
-				CL[i,:] = seqs[1][:winLen]
+				# print "seq C:", seqs
+				C[j,:] = seqs[0][:winLen]
+				# C[j,:] = np.array([0.2333])
+				CL[j,:] = seqs[1][:winLen]
 
+			
+			print T[:3,:]
+			print TL[:3,:]
+			print C[:3,:]
+			print CL[:3,:]
 			T = T.reshape(T.shape[0], 1, T.shape[1]) 
 			TL = TL.reshape(TL.shape[0], 1, TL.shape[1])
 			diff = np.abs(T-C)	
@@ -1014,18 +1023,21 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 			penalizedDiff =  np.isnan(penalizedDiff).astype(int)*np.ones(penalizedDiff.shape, dtype=int) + (1 - np.isnan(penalizedDiff).astype(int))*np.nan_to_num(penalizedDiff)
 			weightedDiff  = penalizedDiff * getMatchingWeights()[-winLen:]  # to get the right most weights 
 			aggregatedCost =np.sum(weightedDiff,axis=2)
-			varCost = aggregatedCost / np.sum(getMatchingWeights())
+			varCost = aggregatedCost / np.sum(getMatchingWeights()[-winLen:])
 			costSum = costSum + varCost
+			# print varCost
+
 
 		avgCost= costSum/float(len(varSet))
-
+		# print avgCost
 		return avgCost
 def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC):
 	trtDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False)
 	confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False)
 	targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True)
-	C= (trtDist + confDist + 50*targetDist)/52
+	C= (trtDist + confDist + 198*targetDist)/200
 	# C=targetDist
+	# print C
 	return C
 
 
@@ -1103,10 +1115,26 @@ def produceHistograms(df, nanLabel):
 		DC.tofile("{}.csv".format(title),sep=',')
 
 
+
+def getprevWaveMIs(indexes, distanceInfo):
+	memtot = []
+	for pair in matchedPairs:
+		index, w  = distanceInfo[indexes[i],0] ,distanceInfoT[indexes[i],1]
+		w=int(w)
+		index=  int(index)
+		col= "memIndex_{}".format(w)
+		col_prev = "memIndex_{}".format(w-1)
+		memtot.append( df.loc[index, col_prev])
+
+	return memtot
+
 def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var):
 	memtotT = []
 	memtotC = []
-	
+	memtotT_prev = []
+	memtotC_prev = []
+
+
 	T_ids= []
 	C_ids = []
 
@@ -1116,9 +1144,11 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 		index=  int(index)
 		T_ids.append((index,w))
 		col= "memIndex_{}".format(w)
+		col_prev = "memIndex_{}".format(w-1)
 		# print "index:{}, w:{}".format(index,w)
 		# print col
 		memtotT.append( df.loc[index, col])
+		memtotT_prev.append(df.loc[index, col_prev])
 
 	for pair in matchedPairs:
 		index, w  = distanceInfoC[outliersIndexC[pair[1]],0] ,distanceInfoC[outliersIndexC[pair[1]],1]
@@ -1126,7 +1156,9 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 		index=  int(index)
 		C_ids.append((index,w))
 		col= "memIndex_{}".format(w)
+		col_prev = "memIndex_{}".format(w-1)
 		memtotC.append( df.loc[index, col])
+		memtotC_prev.append( df.loc[index, col_prev])
 
 
 
@@ -1135,7 +1167,7 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 	np.array(memtotT).tofile("memIndexValues_Treatment_{}.csv".format(var), sep=',')
 	np.array(memtotC).tofile("memIndexValues_Control_{}.csv".format(var), sep=',')
 	
-	return [memtotC, memtotT] 	
+	return [memtotC, memtotT, memtotC_prev, memtotT_prev] 	
 
 
 def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
