@@ -788,6 +788,8 @@ def getControlSignal():
 
 	return (signal, weights)
 
+
+MIExcludingPoints = 1
 def getMatchingWeights():
     weights = np.array( [0.5,1])
     return weights
@@ -977,10 +979,10 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 
 
 def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar):
-		print "compute avg:"
+		# print "compute avg:"
 		alpha = 0.3
 		if (isTargetVar):
-			effectiveWeights = getMatchingWeights()[1:]
+			effectiveWeights = getMatchingWeights()[MIExcludingPoints:]
 		else:
 			effectiveWeights = getMatchingWeights()
 
@@ -990,7 +992,7 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 
 		for var in (varSet):
 		# for var in ["memIndex"]:
-			print "var:", var
+			# print "var:", var
 			T = np.zeros(shape = (len(outliersIndexT), winLen))
 			C = np.zeros(shape = (len(outliersIndexC), winLen))
 			TL = np.zeros(shape = (len(outliersIndexT), winLen))
@@ -1011,10 +1013,10 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 				CL[j,:] = seqs[1][:winLen]
 
 			
-			print T[:3,:]
-			print TL[:3,:]
-			print C[:3,:]
-			print CL[:3,:]
+			# print T[:3,:]
+			# print TL[:3,:]
+			# print C[:3,:]
+			# print CL[:3,:]
 			T = T.reshape(T.shape[0], 1, T.shape[1]) 
 			TL = TL.reshape(TL.shape[0], 1, TL.shape[1])
 			diff = np.abs(T-C)	
