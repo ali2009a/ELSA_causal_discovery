@@ -548,15 +548,20 @@ def performMatching(C):
 				indexes.append(pair)
 				costs.append(C[L,R])
 
-
-	L=3
 	costs = np.array(costs)
-	logC= np.log(C.flatten())
-	threshold = (np.median(logC) - L*MAD(logC))
-	passThreshold = np.log(costs) < threshold
-	passedPairs = [pair for idx, pair in enumerate(indexes) if passThreshold[idx] ]
+	passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]< 0.3 ]			
 	return passedPairs
-	# return indexes
+
+
+	# L=3
+	# costs = np.array(costs)
+	# print costs.min(), costs.max()
+	# logC= np.log(C.flatten())
+	# threshold = (np.median(logC) - L*MAD(logC))
+	# passThreshold = np.log(costs) < threshold
+	# print threshold
+	# passedPairs = [pair for idx, pair in enumerate(indexes) if passThreshold[idx] ]
+	# return passedPairs
 
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
@@ -820,16 +825,18 @@ def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 def measureSimilarity(var, signal, df, nanLabel):
 	[samplesNum, columnsNum] = df.shape
 	distanceValues = np.empty((samplesNum*WAVE_NUM,3))
-	# distanceValues = np.empty((7*5000,3))
+	# distanceValues = np.empty((7*1000,3))
 	distanceValues[:] = np.nan
 
 
-        windowLength = len(signal[0])
+	windowLength = len(signal[0])
 	counter= 0
 	for index in tqdm(range(0, len(df))):
-	# for index in range(0,5000):
+	# for index in tqdm([3411]):
 		# print "index", index	
 		for w in range(8,15):
+		# for w in [11]:
+
 			# print "w", w
 			cols= []
 			for i in range(w-(windowLength-1),w+1):
@@ -839,7 +846,11 @@ def measureSimilarity(var, signal, df, nanLabel):
 
 			seq = np.array(df.loc[index, cols])
 			seqLabel = np.array(nanLabel.loc[index, cols])
+			# print seq
+			# print seqLabel
+			# print signal
 			diff = computeDistance(seq, signal[0], seqLabel, weights=signal[1])
+			# print diff
 			distanceValues[counter,:]=  [int(index), int(w), diff]
 			counter = counter+1		
 	return distanceValues
@@ -920,7 +931,7 @@ def preprocess(df):
 
 
 def detectOutliers(distanceInfo, nanLabel, L=3):
-	D = distanceInfo[:,2]
+	D = distanceInfo[:,2].copy()
 	outliersIndex, L =  tuneL(D, nanLabel, distanceInfo)
 	return outliersIndex
 
@@ -966,7 +977,7 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 
 
 def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar):
-		
+		print "compute avg:"
 		alpha = 0.3
 		if (isTargetVar):
 			effectiveWeights = getMatchingWeights()[1:]
@@ -975,9 +986,11 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 
 		winLen = len(effectiveWeights)
 		
-		costSum = np.zeros(shape = (len(outliersIndexT), winLen))
+		costSum = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))
 
 		for var in (varSet):
+		# for var in ["memIndex"]:
+			print "var:", var
 			T = np.zeros(shape = (len(outliersIndexT), winLen))
 			C = np.zeros(shape = (len(outliersIndexC), winLen))
 			TL = np.zeros(shape = (len(outliersIndexT), winLen))
@@ -995,29 +1008,35 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 
 			T = T.reshape(T.shape[0], 1, T.shape[1]) 
 			TL = TL.reshape(TL.shape[0], 1, TL.shape[1])
-
-			diff = np.abs(T-C)
-			isNan = np.logical_or(TL,CL)
-			penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)
+			diff = np.abs(T-C)	
+			isNan = np.logical_or(TL,CL).astype(int)
+			penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)			
+			penalizedDiff =  np.isnan(penalizedDiff).astype(int)*np.ones(penalizedDiff.shape, dtype=int) + (1 - np.isnan(penalizedDiff).astype(int))*np.nan_to_num(penalizedDiff)
 			weightedDiff  = penalizedDiff * getMatchingWeights()[-winLen:]  # to get the right most weights 
-			costSum =np.sum(diff,axis=2)
-			varCost = costSum / np.sum(getMatchingWeights())
+			aggregatedCost =np.sum(weightedDiff,axis=2)
+			varCost = aggregatedCost / np.sum(getMatchingWeights())
 			costSum = costSum + varCost
 
-		return costSum/len(varSet)			
+		avgCost= costSum/float(len(varSet))
 
-
+		return avgCost
 def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC):
-	# C = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))	
 	trtDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False)
 	confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False)
 	targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True)
 	C= (trtDist + confDist + 50*targetDist)/52
+	# C=targetDist
 	return C
 
 
 def dump2DMatrix(C, var, outputPrefix):
+	print "C Matrix"
+	print C
+	print "C Shape:"
+	print C.shape
+	
 	r,c = C.shape
+	print "after ass."
 	with open('{}_{}.txt'.format(outputPrefix, var), 'w') as f:
 		f.write("{} {}\n".format(r,c))
 		for i in range(0,r):
@@ -1047,9 +1066,10 @@ def heidegger():
 		
 		outliersIndexT = detectOutliers(distanceInfoT, nanLabel)
 		outliersIndexC = detectOutliers(distanceInfoC, nanLabel)
-		C = computeDistanceMatrix(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
+		C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
 		
 		C.tofile("FlattenCostMatrix_{}.csv".format(var),sep=',')  ## for debug
+		print C.shape
 		dump2DMatrix(C, var, "CostMatrix")							## for debug
 
 		matchedPairs = performMatching(C)
