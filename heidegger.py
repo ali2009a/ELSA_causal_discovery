@@ -1045,8 +1045,8 @@ def heidegger():
 
 	f = open("result.txt","w")
 
-	# for var in trtmntVar:
-	for var in ["heactb", "scorg05", "scorg03"]:
+	for var in trtmntVar:
+	# for var in ["heactb", "scorg05", "scorg03"]:
 		print "evaluting {}".format(var)
 		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
 		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
