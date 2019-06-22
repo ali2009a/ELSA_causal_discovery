@@ -1142,6 +1142,8 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 	np.array(memtotT).tofile("memIndexValues_Treatment_{}.csv".format(var), sep=',')
 	np.array(memtotC).tofile("memIndexValues_Control_{}.csv".format(var), sep=',')
 	
+
+	print "memtotC:{}, memtotT:{}, memtotC_prev:{}, memtotT_prev:{}".format(np.mean(memtotC), np.mean(memtotT), np.mean(memtotC_prev), np.mean(memtotT_prev))
 	return [memtotC, memtotT, memtotC_prev, memtotT_prev] 	
 
 
