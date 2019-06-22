@@ -789,7 +789,7 @@ def getControlSignal():
 	return (signal, weights)
 
 
-MIExcludingPoints = 1
+MIExcludingPoints = 1  #must be equal or larger than 1(to exclude the MI for current wave)
 def getMatchingWeights():
     weights = np.array( [0.5,1])
     return weights
@@ -979,7 +979,6 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 
 
 def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar):
-		# print "compute avg:"
 		alpha = 0.3
 		if (isTargetVar):
 			effectiveWeights = getMatchingWeights()[MIExcludingPoints:]
@@ -991,8 +990,6 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 		costSum = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))
 
 		for var in (varSet):
-		# for var in ["memIndex"]:
-			# print "var:", var
 			T = np.zeros(shape = (len(outliersIndexT), winLen))
 			C = np.zeros(shape = (len(outliersIndexC), winLen))
 			TL = np.zeros(shape = (len(outliersIndexT), winLen))
@@ -1000,24 +997,14 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 			
 			for i in range(0,len(outliersIndexT)):
 				seqs =extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar, length = len(getMatchingWeights()))
-				# print "seq T:", seqs
 				T[i,:] = seqs[0][:winLen] # to discard memIndex for the current weight (right most one)
-				# T[i,:] = np.array([0.2333])
 				TL[i,:] = seqs[1][:winLen]
 
 			for j in range(0,len(outliersIndexC)):
 				seqs =extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar, length = len(getMatchingWeights()))
-				# print "seq C:", seqs
 				C[j,:] = seqs[0][:winLen]
-				# C[j,:] = np.array([0.2333])
 				CL[j,:] = seqs[1][:winLen]
-
 			
-			# print T[:3,:]
-			# print TL[:3,:]
-			# print C[:3,:]
-			# print CL[:3,:]
-			T = T.reshape(T.shape[0], 1, T.shape[1]) 
 			TL = TL.reshape(TL.shape[0], 1, TL.shape[1])
 			diff = np.abs(T-C)	
 			isNan = np.logical_or(TL,CL).astype(int)
@@ -1027,30 +1014,19 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 			aggregatedCost =np.sum(weightedDiff,axis=2)
 			varCost = aggregatedCost / np.sum(getMatchingWeights()[-winLen:])
 			costSum = costSum + varCost
-			# print varCost
-
 
 		avgCost= costSum/float(len(varSet))
-		# print avgCost
 		return avgCost
 def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC):
 	trtDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False)
 	confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False)
 	targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True)
 	C= (trtDist + confDist + 198*targetDist)/200
-	# C=targetDist
-	# print C
 	return C
 
 
-def dump2DMatrix(C, var, outputPrefix):
-	print "C Matrix"
-	print C
-	print "C Shape:"
-	print C.shape
-	
+def dump2DMatrix(C, var, outputPrefix):	
 	r,c = C.shape
-	print "after ass."
 	with open('{}_{}.txt'.format(outputPrefix, var), 'w') as f:
 		f.write("{} {}\n".format(r,c))
 		for i in range(0,r):
@@ -1083,7 +1059,6 @@ def heidegger():
 		C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
 		
 		C.tofile("FlattenCostMatrix_{}.csv".format(var),sep=',')  ## for debug
-		print C.shape
 		dump2DMatrix(C, var, "CostMatrix")							## for debug
 
 		matchedPairs = performMatching(C)
@@ -1147,8 +1122,6 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 		T_ids.append((index,w))
 		col= "memIndex_{}".format(w)
 		col_prev = "memIndex_{}".format(w-1)
-		# print "index:{}, w:{}".format(index,w)
-		# print col
 		memtotT.append( df.loc[index, col])
 		memtotT_prev.append(df.loc[index, col_prev])
 
