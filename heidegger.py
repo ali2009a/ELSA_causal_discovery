@@ -777,21 +777,21 @@ def interpolate(df):
 
 
 def getTreatmentSignal():
-	signal = np.array( [0,1])
-	weights =  np.array( [ 1,1])	
+	signal = np.array( [0, 1, 1])
+	weights =  np.array( [1, 1, 1])	
 
 	return (signal, weights)
 
 def getControlSignal():
-	signal = np.array([0,0])
-	weights = np.array( [  1, 1])	
+	signal = np.array([0, 0, 0])
+	weights = np.array( [1, 1, 1])	
 
 	return (signal, weights)
 
 
-MIExcludingPoints = 1  #must be equal or larger than 1(to exclude the MI for current wave)
+MIExcludingPoints = 2  #must be equal or larger than 1(to exclude the MI for current wave)
 def getMatchingWeights():
-    weights = np.array( [0.5,1])
+    weights = np.array( [1, 1, 1])
     return weights
 
 def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
@@ -1122,7 +1122,7 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 		index=  int(index)
 		T_ids.append((index,w))
 		col= "memIndex_{}".format(w)
-		col_prev = "memIndex_{}".format(w-1)
+		col_prev = "memIndex_{}".format(w-MIExcludingPoints)
 		memtotT.append( df.loc[index, col])
 		memtotT_prev.append(df.loc[index, col_prev])
 
@@ -1132,7 +1132,7 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
 		index=  int(index)
 		C_ids.append((index,w))
 		col= "memIndex_{}".format(w)
-		col_prev = "memIndex_{}".format(w-1)
+		col_prev = "memIndex_{}".format(w-MIExcludingPoints)
 		memtotC.append( df.loc[index, col])
 		memtotC_prev.append( df.loc[index, col_prev])
 
