@@ -1047,7 +1047,7 @@ def heidegger():
 	f = open("result.txt","w")
 
 	for var in trtmntVar:
-	# for var in ["heactb", "scorg05", "scorg03"]:
+	#for var in ["heactb", "scorg05", "scorg03"]:
 		print "evaluting {}".format(var)
 		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
 		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
@@ -1215,6 +1215,7 @@ def tuneL(Data, nanLabel, distanceInfo):
 		Outliers =  np.logical_and(Outliers, isKnown) 
 		outliersIndex = np.where(Outliers)[0]
 		size= len(outliersIndex)
+		print "size:{}, L:{}".format(size,L)
 		if(size>LOWER_LIMIT):
 			break
 		L=L-1
@@ -1223,6 +1224,7 @@ def tuneL(Data, nanLabel, distanceInfo):
 		idx = np.argpartition(Data[outliersIndex], UPPER_LIMIT)[:UPPER_LIMIT]
 		outliersIndex = outliersIndex[idx]
 		#outliersIndex = np.random.choice(outliersIndex, UPPER_LIMIT, replace=False)
+	print "final size:{}".format(len(outliersIndex))
 	return (outliersIndex, L)
 
 
