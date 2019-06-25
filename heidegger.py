@@ -1189,7 +1189,7 @@ def tuneL(Data, nanLabel, distanceInfo):
 	isKnown = np.array(isKnown)
 	
 
-	UPPER_LIMIT=500
+	UPPER_LIMIT=4000  #needs to bhe checked. prev: 500
 	LOWER_LIMIT=100
 	Data[Data==0] = np.partition(np.unique(Data),1)[1]/10.0
 	Data = np.log(Data)
@@ -1206,7 +1206,7 @@ def tuneL(Data, nanLabel, distanceInfo):
 		outliersIndex = np.where(Outliers)[0]
 		size= len(outliersIndex)
                 print "size:{}, L:{}".format(size,L)
-		if(size<UPPER_LIMIT):
+		if(size<LOWER_LIMIT): #modified - needs to be checked. Prevs: UPPER_LIMIT
 			break
 		L=L+1
         #print "2:{}".format(L)
@@ -1220,7 +1220,9 @@ def tuneL(Data, nanLabel, distanceInfo):
 		L=L-1
         #print "3:{}".format(L)
 	if (len(outliersIndex)>UPPER_LIMIT):
-		outliersIndex = np.random.choice(outliersIndex, UPPER_LIMIT, replace=False)
+		idx = np.argpartition(Data[outliersIndex], UPPER_LIMIT)[:UPPER_LIMIT]
+		outliersIndex = outliersIndex[idx]
+		#outliersIndex = np.random.choice(outliersIndex, UPPER_LIMIT, replace=False)
 	return (outliersIndex, L)
 
 
