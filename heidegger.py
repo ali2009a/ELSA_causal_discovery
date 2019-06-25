@@ -1005,6 +1005,7 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
 				C[j,:] = seqs[0][:winLen]
 				CL[j,:] = seqs[1][:winLen]
 			
+			T = T.reshape(T.shape[0], 1, T.shape[1])
 			TL = TL.reshape(TL.shape[0], 1, TL.shape[1])
 			diff = np.abs(T-C)	
 			isNan = np.logical_or(TL,CL).astype(int)
