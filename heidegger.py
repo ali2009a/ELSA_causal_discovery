@@ -932,9 +932,9 @@ def preprocess(df):
 	return df, nanLabel
 
 
-def detectOutliers(distanceInfo, nanLabel, L=3):
+def detectOutliers(distanceInfo, nanLabel, var, string, L=3):
 	D = distanceInfo[:,2].copy()
-	outliersIndex, L =  tuneL(D, nanLabel, distanceInfo)
+	outliersIndex, L =  tuneL(D, nanLabel, distanceInfo, var, string)
 	return outliersIndex
 
 
@@ -1051,12 +1051,12 @@ def heidegger():
 		print "evaluting {}".format(var)
 		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
 		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
-
+		
 		#distanceInfoT[:,2].tofile("Treatment_Distance_{}.csv".format(var),sep=',') ## for debug
 		#distanceInfoC[:,2].tofile("Control_Distance_{}.csv".format(var),sep=',')   ## for debug
 		
-		outliersIndexT = detectOutliers(distanceInfoT, nanLabel)
-		outliersIndexC = detectOutliers(distanceInfoC, nanLabel)
+		outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
+		outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")
 		C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
 		
 		C.tofile("FlattenCostMatrix_{}.csv".format(var),sep=',')  ## for debug
@@ -1180,7 +1180,7 @@ def evaluateLValues(distances, df, nanLabel):
 		print "Control:{}".format(len(outliersIndexC))
 		print "Treatment:{}".format(len(outliersIndexT))
 
-def tuneL(Data, nanLabel, distanceInfo):
+def tuneL(Data, nanLabel, distanceInfo, var, string):
 	isKnown = []
 	for i in range(0,len(Data)):
 		index = int(distanceInfo[i,0])
@@ -1194,6 +1194,8 @@ def tuneL(Data, nanLabel, distanceInfo):
 	LOWER_LIMIT=100
 	Data[Data==0] = np.partition(np.unique(Data),1)[1]/10.0
 	Data = np.log(Data)
+	Data.tofile("{}_distance_{}.csv".format(string, var), sep=',')
+	isKnown.tofile("{}_isMIKnown_{}.csv".format(string, var), sep=',')
 	L=1
 	Median = np.median(Data[np.where(isKnown)])
 	MADVal = MAD(Data[np.where(isKnown)])
@@ -1225,8 +1227,11 @@ def tuneL(Data, nanLabel, distanceInfo):
 		idx = np.argpartition(Data[outliersIndex], UPPER_LIMIT)[:UPPER_LIMIT]
 		outliersIndex = outliersIndex[idx]
 		#outliersIndex = np.random.choice(outliersIndex, UPPER_LIMIT, replace=False)
-	print "final size:{}".format(len(outliersIndex))
-	return (outliersIndex, L)
+	passedIndexes = [index for  index in outliersIndex if Data[index]< -2 ]
+	print "Size before pruning:{}".format(len(outliersIndex))
+	print "Final size after pruning:{}".format(len(passedIndexes))
+	print Data[outliersIndex]
+	return (passedIndexes, L)
 
 
 def getVarDistances(df, nanLabel):
