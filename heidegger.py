@@ -29,7 +29,7 @@ allVar = trtmntVar|confoundersVar|targetVar
 WAVE_NUM=7
 weights = {"scfrda":1,"scfrdg":1,"scfrdm":1,"heacta":1, "heactb":1,"heactc":1, "scorg03":1,"scorg06":1,"scorg05":1,"scorg07":1,"heskb":1,"indager":2, "hehelf":1,"dhsex":1,"totwq10_bu_s":1,"baseMemIndex":1}
 reverseVars = ["heacta", "heactb", "heactc", "scfrdg", "scfrda"]
-
+# continousVars = ["heskb, scfrdm"]
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
 REFUSAL=-9
@@ -107,14 +107,22 @@ def normalizeData(df):
 			col = "{}_{}".format(var,i)
 			dfs.append(pd.DataFrame( {var: df[col]}))
 		mergedDf = pd.concat(dfs)
+		nonZeros = mergedDf[mergedDf[var]!=0][var]
+		NZMean = nonZeros.mean()
 		mean= mergedDf[var].mean()
 		std = mergedDf[var].std()
 		minValue = mergedDf[var].min()
 		maxValue = mergedDf[var].max()
+		mergedDf.to_csv("rawValues_{}".format(var), index=False)
 		for i in range(1,8):
 			col = "{}_{}".format(var,i)
 			col_norm = "{}_n_{}".format(var,i)
-			df[col_norm] = (df[col] - minValue)/(maxValue - minValue)
+			if(var == "heskb"):
+				df[col_norm] = 1/(1+ np.exp(-(df[col]-(NZMean/2))*(0.5)))
+			elif var == "scfrdm":
+				df[col_norm] = 1/(1+ np.exp(-(df[col]-(NZMean/2))*(3)))	
+			else:
+				df[col_norm] = (df[col] - minValue)/(maxValue - minValue)
 		if not var in targetVar:
 			for i in range(1,8):
 				# print "removed"
