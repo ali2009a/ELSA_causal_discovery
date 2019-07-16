@@ -632,7 +632,12 @@ def getTargetValues2(df, treatmentGroups, indexes, waveNumber):
 	memtotT_P = [  df.loc[treatmentIndexes[i[0]]][prevWave]  for i in indexes]
 	memtotC_P = [  df.loc[controlIndexes[i[1]]][prevWave]  for i in indexes]
 
+	f = open("sample_ids.txt", "a")
+	for i in indexes:
+		f.write("{} {} {}\n".format( treatmentIndexes[ i[0]], controlIndexes[i[1]], waveNumber))
+	f.close()
 	return [memtotC, memtotT,  memtotC_P, memtotT_P]
+
 
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
@@ -788,7 +793,7 @@ def f():
 		df = pd.read_pickle(dfPath)
 	else:
 		df = readData()
-	df = preProcessData(df)  #alternative
+	df = preProcessData2(df)  #alternative
 
 
 
@@ -797,7 +802,7 @@ def f():
 		pVals[indVariable] = []
 	
 	for indVariable in trtmntVar:
-	# for indVariable in ["heskb"]:
+	#for indVariable in ["heactb"]:
 		s =time.time()
 		print indVariable
 		controlValues= []
@@ -807,10 +812,10 @@ def f():
 		for waveNumber in [3,4,5,6,7]:
 		# for waveNumber in [5]:
 			print waveNumber
-			treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber) #alternative
+			treatmentGroups = getTreatmentGroups2(df,indVariable, waveNumber) #alternative
 			C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
 			matchedPairs = performMatching(C)
-			targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber) #alternative
+			targetValues = getTargetValues2(df,treatmentGroups, matchedPairs, waveNumber) #alternative
 			controlValues = controlValues+ targetValues[0]
 			treatmentValues = treatmentValues + targetValues[1]
 			controlValuesPrev = controlValuesPrev+ targetValues[2]
@@ -829,6 +834,64 @@ def f():
 		print "processing time:", elapsedTime/60		
 
 	return (pVals, controlValues, treatmentValues, controlValuesPrev, treatmentValuesPrev) 
+
+
+def readTreatedGroup():
+	ids = []
+	with open("sample_ids.txt") as f:
+		for line in f:
+			words= line.split(" ")
+			tid = int(words[0])
+			w = int(words[2])
+			ids.append((tid,w))	
+	return ids
+
+
+def detectTreatedGroup(df, indVariable):
+	res = []
+	for waveNumber in range(3,8):	
+        	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
+        	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
+        	varPrev2Wave = "{}_b_{}".format(indVariable, waveNumber-2)
+        	memIndexChangeVar = "memIndexChange_{}".format(waveNumber)
+
+        	currentWave  = np.array(df[varCurrWave])
+        	prevWave = np.array(df[varPrevWave])
+        	prev2Wave = np.array(df[varPrev2Wave])
+        	memChange = np.isnan(df.loc[:,memIndexChangeVar]).astype(int)
+
+        	T = np.multiply(1- prev2Wave, prevWave)
+        	T = np.multiply(T, currentWave)
+        	T=  np.multiply(T, 1-memChange)
+
+        	treatmentIndexes = np.where(T==1)[0]
+		pairs = zip( treatmentIndexes,  np.repeat(waveNumber, len(treatmentIndexes)) )
+#		print pairs.shape
+		res = res+ pairs
+		
+        return res
+
+
+
+
+def getMIsFromID(ids, df):
+	MIs= []
+	for pair in ids:
+		w= pair[1]
+		n_id = pair[0]
+		MI = [ df.loc[n_id, "memIndex_{}".format(w-2)],  df.loc[n_id, "memIndex_{}".format(w-1)],  df.loc[n_id, "memIndex_{}".format(w)]]
+		MIs.append(MI)
+	return MIs 	
+
+def getConfsFromID(ids, df):
+        MIs= []
+        for pair in ids:
+                w= pair[1]
+                n_id = pair[0]
+                MI = [ df.loc[n_id, "indager_{}".format(w)],  df.loc[n_id, "dhsex_{}".format(w)]]
+                MIs.append(MI)
+        return MIs
+
 
 
 
@@ -868,49 +931,49 @@ def computeSimilarityMatrix(D):
 
 def runKMean(D, k):
 
-	Sum_of_squared_distances = []
-	silhouette_scores = []
-	K = range(2,10)
-	for k in K:
-	    km = KMeans(n_clusters=k)
-	    km = km.fit(D)
-	    labels= km.labels_
-	    print len(labels)
-	    print len(D)
-
-	    Sum_of_squared_distances.append(km.inertia_)
-	    silhouette_scores.append(silhouette_score(D, labels))
-
+	#Sum_of_squared_distances = []
+	#silhouette_scores = []
+	#K = range(2,10)
+	#for k in K:
+	#    km = KMeans(n_clusters=k)
+	#    km = km.fit(D)
+	#    labels= km.labels_
+	#    print len(labels)
+	#    print len(D)
+	#
+	#    Sum_of_squared_distances.append(km.inertia_)
+	#    silhouette_scores.append(silhouette_score(D, labels))
+	#
 	# plt.plot(K, Sum_of_squared_distances, 'bx-')
 	# plt.xlabel('k')
 	# plt.ylabel('Sum_of_squared_distances')
 	# plt.title('Elbow Method For Optimal k')
 	# plt.show()
 
-	plt.plot(K, silhouette_scores, 'bx-')
-	plt.xlabel('k')
-	plt.ylabel('silhouette scores')
-	# plt.title('Elbow Method For Optimal k')
-	plt.show()
+	#plt.plot(K, silhouette_scores, 'bx-')
+	#plt.xlabel('k')
+	#plt.ylabel('silhouette scores')
+	## plt.title('Elbow Method For Optimal k')
+	#plt.show()
 
 
-	return Sum_of_squared_distances
+	#return Sum_of_squared_distances
 
-	kmeans = KMeans(n_clusters=k)
+	kmeans = KMeans(n_clusters=k, n_init=100 )
 	kmeans.fit(D)
 	centroids = kmeans.cluster_centers_
 
 	for i in range(0,k):
 		print len(np.where(kmeans.labels_==i)[0])
-		np.where(kmeans.labels_==i)
+		#np.where(kmeans.labels_==i)
 
 
-	T = pd.DataFrame()
-	for i in range(0,k):
-		T[len(np.where(kmeans.labels_==i)[0])]=centroids[i]
+	#T = pd.DataFrame()
+	#for i in range(0,k):
+	#	T[len(np.where(kmeans.labels_==i)[0])]=centroids[i]
 	# T.plot(subplots=True, legend=False)
-	T.plot()	
-	plt.show()
+	#T.plot()	
+	#plt.show()
 	return kmeans
 
 def runKMeanWithSimilarity(S, D, k):
@@ -947,7 +1010,83 @@ def runKMeanWithSimilarity(S, D, k):
 
 
 
+def fitLine(D, degree, f_num):
+	S = np.zeros(shape=(len(D), f_num))
+	for i in range(len(D)):
+		coeff = np.polyfit([1,2,3],D[i,:], degree)
+		S[i]= coeff[0:f_num]
 
+	return S
+
+
+def getFeaturesFromIDs(IDs, variables, df):
+	F = np.zeros(shape=(len(IDs),len(variables)))
+	for i, pair in enumerate(IDs):
+		#print "i",  i
+		tid = pair[0]
+		w = pair[1]
+		columns=[]
+	        for var in variables:
+                	for offset in [0]:
+                        	columns.append("{}_{}".format(var, w-offset))
+		F[i,:]=np.array(df.loc[tid,columns])
+	return F
+
+
+def fillNans(D):
+	df = pd.DataFrame(D)
+		
+
+from sklearn.preprocessing import Imputer
+from sklearn.ensemble import RandomForestClassifier
+
+
+def normalizeArray(D):
+	D2 = np.zeros(shape=D.shape)
+	for i in range(D.shape[1]):
+		mean = np.mean(D[:,i])
+		std = np.std(D[:,i])
+		D2[:,i] = (D[:,i]-mean)/std
+	return D2
+		
+def getFeatureImportance(df, indVariable):
+
+	K=2
+	ids = detectTreatedGroup(df,indVariable)	
+	MIs  = getMIsFromID(ids, df )
+	D= np.array(MIs)	
+	D2 = fitLine(D, 1, 1)
+	confs = getConfsFromID(ids, df)
+	confs = np.array(confs)
+	confs = normalizeArray(confs)
+	finalD = np.concatenate( (D2, confs), axis=1)
+	finalD= D2
+	kmean = runKMean(finalD,K)
+	print kmean.cluster_centers_
+	print "silhoutte score: {}".format( silhouette_score (finalD, kmean.labels_, metric='euclidean'))
+	cols = (trtmntVar | confoundersVar | set(["baseMemIndex"]))-set([indVariable])
+	cols = list(cols)
+	S= getFeaturesFromIDs(ids, cols, df  )
+	L=kmean.labels_
+
+	#S2=np.nan_to_num(S)
+        imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
+	imputer = imputer.fit(S)
+        S2 = imputer.transform(S)
+	S2_original = S2.copy()
+	S2= normalizeArray(S2)
+	rf = RandomForestClassifier()	
+	rf.fit(S2,L)
+	#print rf.feature_importances_
+	p=zip(cols,  rf.feature_importances_)
+	print p	
+	for i in range(0, len(cols)):
+		print cols[i]
+		print rf.feature_importances_[i]
+		for label in range(0,K):
+			mean = np.mean(S2_original[np.where(L==label), i])
+			print "\tL:{} - Mean: {}".format(label, mean)
+				
 
 if __name__ == "__main__":
 	print "a"
