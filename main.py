@@ -1059,7 +1059,7 @@ def getFeatureImportance(df, indVariable):
 	confs = getConfsFromID(ids, df)
 	confs = np.array(confs)
 	confs = normalizeArray(confs)
-	finalD = np.concatenate( (D2, confs), axis=1)
+	#finalD = np.concatenate( (D2, confs), axis=1)
 	finalD= D2
 	kmean = runKMean(finalD,K)
 	print kmean.cluster_centers_
