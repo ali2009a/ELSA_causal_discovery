@@ -15,7 +15,7 @@ from numpy import diff
 from tqdm import tqdm
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_samples, silhouette_score
-
+import feather
 
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
@@ -847,9 +847,9 @@ def readTreatedGroup():
 	return ids
 
 
-def detectTreatedGroup(df, indVariable):
+def detectTreatedGroup(df, indVariable, waveNum):
 	res = []
-	for waveNumber in range(3,8):	
+	for waveNumber in range(waveNum,waveNum+1):	
         	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
         	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
         	varPrev2Wave = "{}_b_{}".format(indVariable, waveNumber-2)
@@ -1036,6 +1036,26 @@ def getFeaturesFromIDs(IDs, variables, df):
 	return F
 
 
+def getTrtFeaturesFromIDs(IDs, indVariable, df):
+	
+	F = np.zeros(shape=(len(IDs),3))
+	for i, pair in enumerate(IDs):
+		#print "i",  i
+		tid = pair[0]
+		tid = df.index[tid]
+		w = pair[1]
+		columns=[]
+		l= list([1,2,3,4])
+		print l
+		print "salam"
+    	for j in l:
+            	print j
+            	# columns.append("{}_{}".format(indVariable, w-i))
+		print "columns", columns        
+		F[i,:]=np.array(df.loc[tid,columns])
+	return F
+
+
 def fillNans(D):
 	df = pd.DataFrame(D)
 		
@@ -1052,31 +1072,73 @@ def normalizeArray(D):
 		D2[:,i] = (D[:,i]-mean)/std
 	return D2
 		
+
+def getCriticalVars(indVariable, waveNum):
+	cols= [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex"]
+	res = []
+	for var in cols:
+		res.append("{}_{}".format(var, waveNum-2))
+	for w in range(waveNum-2,waveNum+1):
+		res.append("{}_{}".format(indVariable, w))
+	for w in [w-2,w]:
+		res.append("{}_{}".format(list(targetVar)[0], w))
+	return res
+
 def getFeatureImportance(df, indVariable):
 	K=2
-	ids = detectTreatedGroup(df,indVariable)
-	print len(ids)	
-	MIs  = getMIsFromID(ids, df )
-	D= np.array(MIs)	
-	D2 = fitLine(D, 1, 1)
-	confs = getConfsFromID(ids, df)
-	confs = np.array(confs)
-	confs = normalizeArray(confs)
-	#finalD = np.concatenate( (D2, confs), axis=1)
-	finalD= D2
-	kmean = runKMean(finalD,K)
-	print kmean.cluster_centers_
-	print "silhoutte score: {}".format( silhouette_score (finalD, kmean.labels_, metric='euclidean'))
+
+	dfo = df.copy()
 	cols = (trtmntVar | confoundersVar | targetVar)-set([indVariable])
 	cols = list(cols)
-	# cols   = ["memIndex",  "memIndex",  "indager",  "hehelf",  "totwq10_bu_s_1", "scfrdm_1",  "dhsex_1"]
-	S= getFeaturesFromIDs(ids, cols, df  )
+	targetValues =  np.array([], dtype=np.int64).reshape(0,1)
+	totalMIs =  np.array([], dtype=np.int64).reshape(0,1)
+	totalTrts = np.array([], dtype=np.int64).reshape(0,3)
+	features =  np.array([], dtype=np.int64).reshape(0,len(cols))
+	for waveNum in  range(3,8):
+		df= dfo.copy()
+		criticalVars = getCriticalVars(indVariable, waveNum)
+		print "criticalVars"
+		print criticalVars
+		print df.shape
+		df= df.dropna(subset = criticalVars)
+		print df.shape
+		ids = detectTreatedGroup(df,indVariable, waveNum)
+		print len(ids)	
+		MIs  = getMIsFromID(ids, df )
+		D= np.array(MIs)	
+		diff = D[:,2]-D[:,0]
+		print diff.shape
+		diff = diff.reshape(len(diff),1)
+		print diff.shape
+		totalMIs = np.concatenate( (totalMIs, diff), axis=0)
+		D2 = fitLine(D, 1, 1)
+		confs = getConfsFromID(ids, df)
+		confs = np.array(confs)
+		confs = normalizeArray(confs)
+		#finalD = np.concatenate( (D2, confs), axis=1)
+		finalD= D2
+		targetValues= np.concatenate( (targetValues, finalD), axis=0)
+		S= getFeaturesFromIDs(ids, cols, df  )
+		trts =  getTrtFeaturesFromIDs(ids, indVariable, df  )
+		totalTrts= np.concatenate( (totalTrts, trts), axis=0)
+		features= np.concatenate( (features, S), axis=0)
+
+	
+
+
+	refinedDF = pd.DataFrame(data= features, columns=cols)
+	refinedDF["target"] = totalMIs.reshape(len(totalMIs))
+	feather.write_dataframe(refinedDF, "/home/ali/Documents/SFU/Research/dementia/R/refined_df_{}.feather".format(indVariable))
+
+	kmean = runKMean(targetValues,K)
+	print kmean.cluster_centers_
+	print "silhoutte score: {}".format( silhouette_score (targetValues, kmean.labels_, metric='euclidean'))
 	L=kmean.labels_
 
 	#S2=np.nan_to_num(S)
 	imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
-	imputer = imputer.fit(S)
-        S2 = imputer.transform(S)
+	imputer = imputer.fit(features)
+        S2 = imputer.transform(features)
 	S2_original = S2.copy()
 	S2= normalizeArray(S2)
 	rf = RandomForestClassifier()	
