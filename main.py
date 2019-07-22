@@ -878,7 +878,8 @@ def getMIsFromID(ids, df):
 	MIs= []
 	for pair in ids:
 		w= pair[1]
-		n_id = pair[0]
+		n_id = int(pair[0])
+		n_id = df.index[n_id]
 		MI = [ df.loc[n_id, "memIndex_{}".format(w-2)],  df.loc[n_id, "memIndex_{}".format(w-1)],  df.loc[n_id, "memIndex_{}".format(w)]]
 		MIs.append(MI)
 	return MIs 	
@@ -887,7 +888,8 @@ def getConfsFromID(ids, df):
         MIs= []
         for pair in ids:
                 w= pair[1]
-                n_id = pair[0]
+                n_id = int(pair[0])
+                n_id = df.index[n_id]
                 MI = [ df.loc[n_id, "indager_{}".format(w)],  df.loc[n_id, "dhsex_{}".format(w)]]
                 MIs.append(MI)
         return MIs
@@ -1024,10 +1026,11 @@ def getFeaturesFromIDs(IDs, variables, df):
 	for i, pair in enumerate(IDs):
 		#print "i",  i
 		tid = pair[0]
+		tid = df.index[tid]
 		w = pair[1]
 		columns=[]
 	        for var in variables:
-                	for offset in [0]:
+                	for offset in [2]:
                         	columns.append("{}_{}".format(var, w-offset))
 		F[i,:]=np.array(df.loc[tid,columns])
 	return F
@@ -1050,9 +1053,9 @@ def normalizeArray(D):
 	return D2
 		
 def getFeatureImportance(df, indVariable):
-
 	K=2
-	ids = detectTreatedGroup(df,indVariable)	
+	ids = detectTreatedGroup(df,indVariable)
+	print len(ids)	
 	MIs  = getMIsFromID(ids, df )
 	D= np.array(MIs)	
 	D2 = fitLine(D, 1, 1)
@@ -1064,13 +1067,14 @@ def getFeatureImportance(df, indVariable):
 	kmean = runKMean(finalD,K)
 	print kmean.cluster_centers_
 	print "silhoutte score: {}".format( silhouette_score (finalD, kmean.labels_, metric='euclidean'))
-	cols = (trtmntVar | confoundersVar | set(["baseMemIndex"]))-set([indVariable])
+	cols = (trtmntVar | confoundersVar | targetVar)-set([indVariable])
 	cols = list(cols)
+	# cols   = ["memIndex",  "memIndex",  "indager",  "hehelf",  "totwq10_bu_s_1", "scfrdm_1",  "dhsex_1"]
 	S= getFeaturesFromIDs(ids, cols, df  )
 	L=kmean.labels_
 
 	#S2=np.nan_to_num(S)
-        imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
+	imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
 	imputer = imputer.fit(S)
         S2 = imputer.transform(S)
 	S2_original = S2.copy()
@@ -1087,6 +1091,11 @@ def getFeatureImportance(df, indVariable):
 			mean = np.mean(S2_original[np.where(L==label), i])
 			print "\tL:{} - Mean: {}".format(label, mean)
 				
+
+
+
+
+
 
 if __name__ == "__main__":
 	print "a"
