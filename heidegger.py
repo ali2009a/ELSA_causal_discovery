@@ -797,7 +797,7 @@ def getControlSignal():
     return (signal, weights)
 
 
-MIExcludingPoints = 2  #must be equal or larger than 1(to exclude the MI for current wave)
+MIExcludingPoints = 1  #must be equal or larger than 1(to exclude the MI for current wave)
 def getMatchingWeights():
     weights = np.array( [1, 1, 1])
     return weights
@@ -989,7 +989,7 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar):
         alpha = 0.3
         if (isTargetVar):
-            effectiveWeights = getMatchingWeights()[MIExcludingPoints:]
+            effectiveWeights = getMatchingWeights()[:-MIExcludingPoints]
         else:
             effectiveWeights = getMatchingWeights()
 
@@ -1131,7 +1131,7 @@ def runHyps():
             targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
             pval = computePValue(targetValues[0], targetValues[1])
             print "pval={0:.5f} , n={1:d}\n".format(pval, len(matchedPairs))
-            f.write("{0} pattern: {1} , pval={2:.5f} , n={3:d}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs)))
+            f.write("{0} pattern: {1} , pval={2:.5f} , ACE={4: .2f} , n={3:d} \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
             f.flush()
             os.fsync(f.fileno())
         f.close()
