@@ -1055,7 +1055,7 @@ def heidegger():
 	f = open("result.txt","w")
 
 	for var in trtmntVar:
-	#for var in ["heactb", "scorg05", "scorg03"]:
+	#for var in ["heactb"]:
 		print "evaluting {}".format(var)
 		distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
 		distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
@@ -1078,6 +1078,48 @@ def heidegger():
                 os.fsync(f.fileno())
 	f.close()
 
+from numpy import genfromtxt
+def runHyps():
+        sigs = genfromtxt('LowH_Hyp.csv', delimiter=',')
+        sigs = sigs[1:,:-1]
+        if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
+                df = pd.read_pickle(dfPath)
+                nanLabel = pd.read_pickle(nanLabelPath)
+        else:
+                df = readData()
+                df, nanLabel = preprocess(df)
+
+        f = open("result.txt","w")
+        #for var in trtmntVar:
+        var = "heactb"
+        ctrlSignal = ([0,0,0,0,0,0,0],[1,1,1,1,1,1,1])
+        distanceInfoC = measureSimilarity(var, ctrlSignal, df, nanLabel)
+        outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")     
+        for i in range(0,len(sigs)):
+                trtSeq = sigs[i,:]
+                weights = (~(trtSeq==2)).astype(int)
+                trtSignal = (trtSeq,weights)                
+                print "evaluting:"
+                print trtSignal
+                distanceInfoT = measureSimilarity(var, trtSignal, df, nanLabel)
+
+                #distanceInfoT[:,2].tofile("Treatment_Distance_{}.csv".format(var),sep=',') ## for debug
+                #distanceInfoC[:,2].tofile("Control_Distance_{}.csv".format(var),sep=',')   ## for debug
+
+                outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
+                C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
+
+                C.tofile("FlattenCostMatrix_{}.csv".format(var),sep=',')  ## for debug
+                dump2DMatrix(C, var, "CostMatrix")                                                      ## for debug
+
+                matchedPairs = performMatching(C)
+                targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
+                pval = computePValue(targetValues[0], targetValues[1])
+                f.write("{}:{}\n".format(var, pval))
+                f.flush()
+                os.fsync(f.fileno())
+        f.close()
+	
 
 def produceHistograms(df, nanLabel):
 	for var in trtmntVar:
@@ -1238,7 +1280,7 @@ def tuneL(Data, nanLabel, distanceInfo, var, string):
 	passedIndexes = [index for  index in outliersIndex if Data[index]< -2 ]
 	print "Size before pruning:{}".format(len(outliersIndex))
 	print "Final size after pruning:{}".format(len(passedIndexes))
-	print Data[outliersIndex]
+	#print Data[outliersIndex]
 	return (passedIndexes, L)
 
 
