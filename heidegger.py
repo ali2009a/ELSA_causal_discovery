@@ -1095,7 +1095,7 @@ def runHyps():
         ctrlSignal = ([0,0,0,0,0,0,0],[1,1,1,1,1,1,1])
         distanceInfoC = measureSimilarity(var, ctrlSignal, df, nanLabel)
         outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")     
-        print outliersIndexC
+
         for i in range(0,len(sigs)):
             trtSeq = sigs[i,:]
             if (not isValidHyp(trtSeq)):
@@ -1111,7 +1111,7 @@ def runHyps():
 
             outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
             if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
-                f.write("{}:{}\n".format(var, "NA - outlier detection returned zero samples"))
+                f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
                 f.flush()
                 os.fsync(f.fileno())
                 continue
@@ -1123,15 +1123,15 @@ def runHyps():
 
             matchedPairs = performMatching(C)
             if (len(matchedPairs)<4):
-                f.write("{}:{}\n".format(var, "NA - matching returned less than four samples"))
+                f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
                 f.flush()
                 os.fsync(f.fileno())
                 continue                
 
             targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
             pval = computePValue(targetValues[0], targetValues[1])
-            print "pval={} , n={}\n".format(var, pval, len(matchedPairs))
-            f.write("{}:  pval={} , n={}\n".format(var, pval, len(matchedPairs)))
+            print "pval={0:.5f} , n={1:d}\n".format(pval, len(matchedPairs))
+            f.write("{0} pattern: {1} , pval={2:.5f} , n={3:d}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs)))
             f.flush()
             os.fsync(f.fileno())
         f.close()
