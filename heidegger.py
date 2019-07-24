@@ -799,7 +799,7 @@ def getControlSignal():
 
 MIExcludingPoints = 1  #must be equal or larger than 1(to exclude the MI for current wave)
 def getMatchingWeights():
-    weights = np.array( [1, 1, 1])
+    weights = np.array( [1, 1, 1, 1, 1, 1, 1])
     return weights
 
 def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
@@ -986,14 +986,20 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
 
 
 
-def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar):
+def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar, trtSeq):
         alpha = 0.3
+        anchorPoint = (np.where(trtSeq==1)[0][0]-1)
+        if (anchorPoint<0):
+            anchorPoint=0
+        anchorDist = len(trtSeq)- anchorPoint
         if (isTargetVar):
-            effectiveWeights = getMatchingWeights()[:-MIExcludingPoints]
+            extractLen = anchorDist
+            winLen= 1
+            effectiveWeights = np.ones(winLen)
         else:
+            extractLen = len(getMatchingWeights()) 
+            winLen = extractLen
             effectiveWeights = getMatchingWeights()
-
-        winLen = len(effectiveWeights)
         
         costSum = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))
 
@@ -1004,12 +1010,12 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
             CL = np.zeros(shape = (len(outliersIndexC), winLen))
             
             for i in range(0,len(outliersIndexT)):
-                seqs =extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar, length = len(getMatchingWeights()))
+                seqs =extractSeq(df, nanLabel, var, distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1], isTargetVar, length = extractLen)
                 T[i,:] = seqs[0][:winLen] # to discard memIndex for the current weight (right most one)
                 TL[i,:] = seqs[1][:winLen]
 
             for j in range(0,len(outliersIndexC)):
-                seqs =extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar, length = len(getMatchingWeights()))
+                seqs =extractSeq(df, nanLabel, var, distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1], isTargetVar, length = extractLen)
                 C[j,:] = seqs[0][:winLen]
                 CL[j,:] = seqs[1][:winLen]
             
@@ -1019,17 +1025,17 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
             isNan = np.logical_or(TL,CL).astype(int)
             penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)           
             penalizedDiff =  np.isnan(penalizedDiff).astype(int)*np.ones(penalizedDiff.shape, dtype=int) + (1 - np.isnan(penalizedDiff).astype(int))*np.nan_to_num(penalizedDiff)
-            weightedDiff  = penalizedDiff * getMatchingWeights()[-winLen:]  # to get the right most weights 
+            weightedDiff  = penalizedDiff * effectiveWeights
             aggregatedCost =np.sum(weightedDiff,axis=2)
-            varCost = aggregatedCost / np.sum(getMatchingWeights()[-winLen:])
+            varCost = aggregatedCost / np.sum(effectiveWeights)
             costSum = costSum + varCost
 
         avgCost= costSum/float(len(varSet))
         return avgCost
-def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC):
-    trtDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False)
-    confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False)
-    targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True)
+def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq):
+    trtDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, trtSeq)
+    confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, trtSeq)
+    targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, trtSeq)
     C= (trtDist + confDist + 198*targetDist)/200
     return C
 
@@ -1092,9 +1098,8 @@ def runHyps():
         f = open("result.txt","w")
         #for var in trtmntVar:
         var = "heactb"
-        ctrlSignal = ([0,0,0,0,0,0,0],[1,1,1,1,1,1,1])
-        distanceInfoC = measureSimilarity(var, ctrlSignal, df, nanLabel)
-        outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")     
+        # ctrlSignal = ([0,0,0,0,0,0,0],[1,1,1,1,1,1,1])
+     
 
         for i in range(0,len(sigs)):
             trtSeq = sigs[i,:]
@@ -1105,18 +1110,24 @@ def runHyps():
             print "evaluating:"
             print trtSignal
             distanceInfoT = measureSimilarity(var, trtSignal, df, nanLabel)
-
-            #distanceInfoT[:,2].tofile("Treatment_Distance_{}.csv".format(var),sep=',') ## for debug
-            #distanceInfoC[:,2].tofile("Control_Distance_{}.csv".format(var),sep=',')   ## for debug
-
             outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
+
+            anchorPoint = (np.where(trtSeq!=2)[0][0])
+            anchorDist = len(trtSeq)- anchorPoint
+            ctrlSeq = np.zeros(anchorDist)
+            ctrlWeights = np.ones(anchorDist)
+            ctrlSignal = (ctrlSeq, ctrlWeights)
+
+            distanceInfoC = measureSimilarity(var, ctrlSignal, df, nanLabel)
+            outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")
+
             if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
                 f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
                 f.flush()
                 os.fsync(f.fileno())
                 continue
 
-            C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC)
+            C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
 
             C.tofile("FlattenCostMatrix_{}.csv".format(var),sep=',')  ## for debug
             dump2DMatrix(C, var, "CostMatrix")                                                      ## for debug
