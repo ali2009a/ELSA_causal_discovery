@@ -15,7 +15,7 @@ from numpy import diff
 from tqdm import tqdm
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_samples, silhouette_score
-
+#import feather
 
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
@@ -28,7 +28,9 @@ allVar = trtmntVar|confoundersVar|targetVar
 
 weights = {"scfrda":1,"scfrdg":1,"scfrdm":1,"heacta":1, "heactb":1,"heactc":1, "scorg03":1,"scorg06":1,"scorg05":1,"scorg07":1,"heskb":1,"indager":2, "hehelf":1,"dhsex":1,"totwq10_bu_s":1,"baseMemIndex":1}
 
-basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
+
+
+basePath = "C:/Users/aarab/Downloads/UKDA-5050-stata/stata/stata11_se"
 REFUSAL=-9
 DONT_KNOW=-8
 NOT_APPLICABLE=-1
@@ -191,7 +193,7 @@ def readWave2Data(basePath):
 
 def readWave3Data(basePath):
 	waveNumber=3
-	Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Core = pd.read_stata("{}/wave_{}_elsa_data_v4.dta".format(basePath, waveNumber),convert_categoricals=False)
 	Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
 	FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 	
@@ -216,7 +218,7 @@ def readWave3Data(basePath):
 
 def readWave4Data(basePath):
 	waveNumber=4
-	Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Core = pd.read_stata("{}/wave_{}_elsa_data_v3.dta".format(basePath, waveNumber),convert_categoricals=False)
 	Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
 	FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 	
@@ -238,7 +240,7 @@ def readWave4Data(basePath):
 
 def readWave5Data(basePath):
 	waveNumber=5
-	Core = pd.read_stata("{}/wave_{}_elsa_data.dta".format(basePath, waveNumber),convert_categoricals=False)
+	Core = pd.read_stata("{}/wave_{}_elsa_data_v4.dta".format(basePath, waveNumber),convert_categoricals=False)
 	Drv =  pd.read_stata("{}/wave_{}_ifs_derived_variables.dta".format(basePath, waveNumber),convert_categoricals=False)
 	FinDrv = pd.read_stata('{}/wave_{}_financial_derived_variables.dta'.format(basePath, waveNumber),convert_categoricals=False)
 
@@ -847,9 +849,9 @@ def readTreatedGroup():
 	return ids
 
 
-def detectTreatedGroup(df, indVariable):
+def detectTreatedGroup(df, indVariable, waveNum):
 	res = []
-	for waveNumber in range(3,8):	
+	for waveNumber in range(waveNum,waveNum+1):	
         	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
         	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
         	varPrev2Wave = "{}_b_{}".format(indVariable, waveNumber-2)
@@ -878,7 +880,8 @@ def getMIsFromID(ids, df):
 	MIs= []
 	for pair in ids:
 		w= pair[1]
-		n_id = pair[0]
+		n_id = int(pair[0])
+		n_id = df.index[n_id]
 		MI = [ df.loc[n_id, "memIndex_{}".format(w-2)],  df.loc[n_id, "memIndex_{}".format(w-1)],  df.loc[n_id, "memIndex_{}".format(w)]]
 		MIs.append(MI)
 	return MIs 	
@@ -887,7 +890,8 @@ def getConfsFromID(ids, df):
         MIs= []
         for pair in ids:
                 w= pair[1]
-                n_id = pair[0]
+                n_id = int(pair[0])
+                n_id = df.index[n_id]
                 MI = [ df.loc[n_id, "indager_{}".format(w)],  df.loc[n_id, "dhsex_{}".format(w)]]
                 MIs.append(MI)
         return MIs
@@ -964,6 +968,7 @@ def runKMean(D, k):
 	centroids = kmeans.cluster_centers_
 
 	for i in range(0,k):
+		print "size of cluster :{}".format(i)
 		print len(np.where(kmeans.labels_==i)[0])
 		#np.where(kmeans.labels_==i)
 
@@ -1024,13 +1029,30 @@ def getFeaturesFromIDs(IDs, variables, df):
 	for i, pair in enumerate(IDs):
 		#print "i",  i
 		tid = pair[0]
+		tid = df.index[tid]
 		w = pair[1]
 		columns=[]
 	        for var in variables:
-                	for offset in [0]:
+                	for offset in [2]:
                         	columns.append("{}_{}".format(var, w-offset))
 		F[i,:]=np.array(df.loc[tid,columns])
 	return F
+
+
+def getTrtFeaturesFromIDs(IDs, indVariable, df):
+	F = np.zeros(shape=(len(IDs),3))
+	for i, pair in enumerate(IDs):
+		tid = pair[0]
+		tid = df.index[tid]
+		w = pair[1]
+		columns=[]
+		for i in [2,1,0]:
+			columns.append("{}_{}".format(indVariable, w-i))
+		F[i,:]=np.array(df.loc[tid,columns])
+	return F
+
+
+
 
 
 def fillNans(D):
@@ -1049,30 +1071,72 @@ def normalizeArray(D):
 		D2[:,i] = (D[:,i]-mean)/std
 	return D2
 		
-def getFeatureImportance(df, indVariable):
 
+def getCriticalVars(indVariable, waveNum):
+	cols= [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex"]
+	res = []
+	for var in cols:
+		res.append("{}_{}".format(var, waveNum-2))
+	for w in range(waveNum-2,waveNum+1):
+		res.append("{}_{}".format(indVariable, w))
+	for w in [w-2,w]:
+		res.append("{}_{}".format(list(targetVar)[0], w))
+	return res
+
+def getFeatureImportance(df, indVariable):
 	K=2
-	ids = detectTreatedGroup(df,indVariable)	
-	MIs  = getMIsFromID(ids, df )
-	D= np.array(MIs)	
-	D2 = fitLine(D, 1, 1)
-	confs = getConfsFromID(ids, df)
-	confs = np.array(confs)
-	confs = normalizeArray(confs)
-	#finalD = np.concatenate( (D2, confs), axis=1)
-	finalD= D2
-	kmean = runKMean(finalD,K)
-	print kmean.cluster_centers_
-	print "silhoutte score: {}".format( silhouette_score (finalD, kmean.labels_, metric='euclidean'))
-	cols = (trtmntVar | confoundersVar | set(["baseMemIndex"]))-set([indVariable])
+
+	dfo = df.copy()
+	cols = (trtmntVar | confoundersVar | targetVar)-set([indVariable])
 	cols = list(cols)
-	S= getFeaturesFromIDs(ids, cols, df  )
+	targetValues =  np.array([], dtype=np.int64).reshape(0,1)
+	totalMIs =  np.array([], dtype=np.int64).reshape(0,1)
+	totalTrts = np.array([], dtype=np.int64).reshape(0,3)
+	features =  np.array([], dtype=np.int64).reshape(0,len(cols))
+	for waveNum in  range(3,8):
+		df= dfo.copy()
+		criticalVars = getCriticalVars(indVariable, waveNum)
+		df= df.dropna(subset = criticalVars)
+		ids = detectTreatedGroup(df,indVariable, waveNum)
+		print "size of ids:"
+		print len(ids)	
+		MIs  = getMIsFromID(ids, df )
+		D= np.array(MIs)	
+		diff = D[:,2]-D[:,0]
+		diff = diff.reshape(len(diff),1)
+		totalMIs = np.concatenate( (totalMIs, diff), axis=0)
+		D2 = fitLine(D, 1, 1)
+		confs = getConfsFromID(ids, df)
+		confs = np.array(confs)
+		confs = normalizeArray(confs)
+		#finalD = np.concatenate( (D2, confs), axis=1)
+		finalD= D2
+		targetValues= np.concatenate( (targetValues, finalD), axis=0)
+		S= getFeaturesFromIDs(ids, cols, df  )
+		trts =  getTrtFeaturesFromIDs(ids, indVariable, df  )
+		totalTrts= np.concatenate( (totalTrts, trts), axis=0)
+		features= np.concatenate( (features, S), axis=0)
+
+	
+
+	indVarCols=[]
+	for i in range(1,4):
+		indVarCols.append("{}_{}".format(indVariable, i))
+	data= np.concatenate( (features, totalTrts), axis=1)
+	refinedDF = pd.DataFrame(data= data, columns=(cols+indVarCols))
+	refinedDF["target"] = totalMIs.reshape(len(totalMIs))
+	refinedDF.to_csv("refinedDF.csv", index=False)
+    #feather.write_dataframe(refinedDF, "/home/ali/Documents/SFU/Research/dementia/R/refined_df_{}.feather".format(indVariable))
+
+	kmean = runKMean(targetValues,K)
+	print kmean.cluster_centers_
+	print "silhoutte score: {}".format( silhouette_score (targetValues, kmean.labels_, metric='euclidean'))
 	L=kmean.labels_
 
 	#S2=np.nan_to_num(S)
-        imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
-	imputer = imputer.fit(S)
-        S2 = imputer.transform(S)
+	imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
+	imputer = imputer.fit(features)
+        S2 = imputer.transform(features)
 	S2_original = S2.copy()
 	S2= normalizeArray(S2)
 	rf = RandomForestClassifier()	
@@ -1081,12 +1145,17 @@ def getFeatureImportance(df, indVariable):
 	p=zip(cols,  rf.feature_importances_)
 	print p	
 	for i in range(0, len(cols)):
-		print cols[i]
+		print  cols[i]
 		print rf.feature_importances_[i]
 		for label in range(0,K):
 			mean = np.mean(S2_original[np.where(L==label), i])
 			print "\tL:{} - Mean: {}".format(label, mean)
 				
+
+
+
+
+
 
 if __name__ == "__main__":
 	print "a"
