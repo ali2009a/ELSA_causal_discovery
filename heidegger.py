@@ -1088,6 +1088,7 @@ from numpy import genfromtxt
 def runHyps():
         sigs = genfromtxt('LowH_Hyp.csv', delimiter=',')
         sigs = sigs[1:,:-1]
+        print sigs
         if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
             df = pd.read_pickle(dfPath)
             nanLabel = pd.read_pickle(nanLabelPath)
@@ -1139,14 +1140,76 @@ def runHyps():
                 os.fsync(f.fileno())
                 continue                
 
+
+
+
+            isBiased = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+
+             
+
             targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
             pval = computePValue(targetValues[0], targetValues[1])
+
+
+            if(isBiased):
+                # f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "Dont Care terms are biased"))
+                f.write("{0} pattern: {1} , pval={2:.5f} , ACE={4: .2f} , n={3:d}; dont care terms are biased \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
+                f.flush()
+                os.fsync(f.fileno())
+                continue    
+
+
             print "pval={0:.5f} , n={1:d}\n".format(pval, len(matchedPairs))
             f.write("{0} pattern: {1} , pval={2:.5f} , ACE={4: .2f} , n={3:d} \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
             f.flush()
             os.fsync(f.fileno())
+
+
         f.close()
     
+def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var):
+    memtotT = []
+    memtotC = []
+    memtotT_prev = []
+    memtotC_prev = []
+
+
+    T_ids= []
+    C_ids = []
+
+    for pair in matchedPairs:
+        index, w  = distanceInfoT[outliersIndexT[pair[0]],0], distanceInfoT[outliersIndexT[pair[0]], 1]
+        w=int(w)
+        index=  int(index)
+        T_ids.append((index,w))
+        col= "memIndex_{}".format(w)
+        col_prev = "memIndex_{}".format(w-MIExcludingPoints)
+        memtotT.append( df.loc[index, col])
+        memtotT_prev.append(df.loc[index, col_prev])
+
+    for pair in matchedPairs:
+        index, w  = distanceInfoC[outliersIndexC[pair[1]],0],distanceInfoC[outliersIndexC[pair[1]], 1]
+        w=int(w)
+        index=  int(index)
+        C_ids.append((index,w))
+        col= "memIndex_{}".format(w)
+        col_prev = "memIndex_{}".format(w-MIExcludingPoints)
+        memtotC.append( df.loc[index, col])
+        memtotC_prev.append( df.loc[index, col_prev])
+
+
+
+    dump2DMatrix(np.array(T_ids), var, "Treatment_Ids")
+    dump2DMatrix(np.array(C_ids), var, "Control_Ids")
+    np.array(memtotT).tofile("memIndexValues_Treatment_{}.csv".format(var), sep=',')
+    np.array(memtotC).tofile("memIndexValues_Control_{}.csv".format(var), sep=',')
+    
+    np.array(memtotT_prev).tofile("memIndexValues_base_Treatment_{}.csv".format(var), sep=',')
+    np.array(memtotC_prev).tofile("memIndexValues_base_Control_{}.csv".format(var), sep=',')
+    print "memtotC:{}, memtotT:{}, memtotC_prev:{}, memtotT_prev:{}".format(np.mean(memtotC), np.mean(memtotT), np.mean(memtotC_prev), np.mean(memtotT_prev))
+    return [memtotC, memtotT, memtotC_prev, memtotT_prev]   
+
+
 
 def isValidHyp(h):
     return (h==1).any()
@@ -1185,47 +1248,38 @@ def getprevWaveMIs(indexes, distanceInfo):
 
     return memtot
 
-def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var):
-    memtotT = []
-    memtotC = []
-    memtotT_prev = []
-    memtotC_prev = []
+
+def isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq):
+    isBiased=False
+    for i in trtSeq:
+        if i==2:
+            isBiased = isBiased or not haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, len(trtSeq)-(i+1))
+    return isBiased
 
 
-    T_ids= []
-    C_ids = []
+def haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, offset):
+    trtVal = []
+    ctrlVal = []
 
     for pair in matchedPairs:
         index, w  = distanceInfoT[outliersIndexT[pair[0]],0] ,distanceInfoT[outliersIndexT[pair[0]],1]
-        w=int(w)
+        w=int(w-offset)
         index=  int(index)
-        T_ids.append((index,w))
-        col= "memIndex_{}".format(w)
-        col_prev = "memIndex_{}".format(w-MIExcludingPoints)
-        memtotT.append( df.loc[index, col])
-        memtotT_prev.append(df.loc[index, col_prev])
+        col= "{}_n_{}".format(var, w)
+        trtVal.append( df.loc[index, col])
 
     for pair in matchedPairs:
         index, w  = distanceInfoC[outliersIndexC[pair[1]],0] ,distanceInfoC[outliersIndexC[pair[1]],1]
-        w=int(w)
+        w=int(w-offset)
         index=  int(index)
-        C_ids.append((index,w))
-        col= "memIndex_{}".format(w)
-        col_prev = "memIndex_{}".format(w-MIExcludingPoints)
-        memtotC.append( df.loc[index, col])
-        memtotC_prev.append( df.loc[index, col_prev])
+        col= "{}_n_{}".format(var, w)
+        ctrlVal.append( df.loc[index, col])
 
 
-
-    dump2DMatrix(np.array(T_ids), var, "Treatment_Ids")
-    dump2DMatrix(np.array(C_ids), var, "Control_Ids")
-    np.array(memtotT).tofile("memIndexValues_Treatment_{}.csv".format(var), sep=',')
-    np.array(memtotC).tofile("memIndexValues_Control_{}.csv".format(var), sep=',')
-    
-    np.array(memtotT_prev).tofile("memIndexValues_base_Treatment_{}.csv".format(var), sep=',')
-    np.array(memtotC_prev).tofile("memIndexValues_base_Control_{}.csv".format(var), sep=',')
-    print "memtotC:{}, memtotT:{}, memtotC_prev:{}, memtotT_prev:{}".format(np.mean(memtotC), np.mean(memtotT), np.mean(memtotC_prev), np.mean(memtotT_prev))
-    return [memtotC, memtotT, memtotC_prev, memtotT_prev]   
+    print "Treatment Mean:{}".format(np.mean(trtVal))
+    # pval = computePValue(ctrlVal, trtVal)
+    # print pval
+    return np.mean(trtVal) < 0.6 and np.mean(trtVal) >0.4
 
 
 def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
@@ -1287,7 +1341,7 @@ def tuneL(Data, nanLabel, distanceInfo, var, string):
         Outliers =  np.logical_and(Outliers, isKnown) 
         outliersIndex = np.where(Outliers)[0]
         size= len(outliersIndex)
-        print "size:{}, L:{}".format(size,L)
+        # print "size:{}, L:{}".format(size,L)
         if(size<LOWER_LIMIT): #modified - needs to be checked. Prevs: UPPER_LIMIT
             break
         L=L+1
@@ -1297,7 +1351,7 @@ def tuneL(Data, nanLabel, distanceInfo, var, string):
         Outliers =  np.logical_and(Outliers, isKnown) 
         outliersIndex = np.where(Outliers)[0]
         size= len(outliersIndex)
-        print "size:{}, L:{}".format(size,L)
+        # print "size:{}, L:{}".format(size,L)
         if(size>LOWER_LIMIT):
             break
         L=L-1
