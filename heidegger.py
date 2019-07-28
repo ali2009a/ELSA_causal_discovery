@@ -834,15 +834,15 @@ def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 
 def measureSimilarity(var, signal, df, nanLabel):
     [samplesNum, columnsNum] = df.shape
-    # distanceValues = np.empty((samplesNum*WAVE_NUM,3))   #to be fixed
-    distanceValues = np.empty((7*1000,3))
+    distanceValues = np.empty((samplesNum*WAVE_NUM,3))   #to be fixed
+    # distanceValues = np.empty((7*1000,3))
     distanceValues[:] = np.nan
 
 
     windowLength = len(signal[0])
     counter= 0
-    # for index in tqdm(range(0, len(df))):   #to be fixed
-    for index in tqdm(range(0,1000)):
+    for index in tqdm(range(0, len(df))):   #to be fixed
+    # for index in tqdm(range(0,1000)):
         # print "index", index  
         for w in range(8,15):
         # for w in [11]:
