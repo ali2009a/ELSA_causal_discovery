@@ -1153,14 +1153,14 @@ def runHyps():
 
             if(isBiased):
                 # f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "Dont Care terms are biased"))
-                f.write("{0} pattern: {1} , pval={2:.5f} , ACE={4: .2f} , n={3:d}; dont care terms are biased \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
+                f.write("{0} pattern: {1} , pval={2:} , ACE={4: .2f} , n={3:d}; dont care terms are biased \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
                 f.flush()
                 os.fsync(f.fileno())
                 continue    
 
 
             print "pval={0:.5f} , n={1:d}\n".format(pval, len(matchedPairs))
-            f.write("{0} pattern: {1} , pval={2:.5f} , ACE={4: .2f} , n={3:d} \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
+            f.write("{0} pattern: {1} , pval={2:} , ACE={4: .2f} , n={3:d} \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
             f.flush()
             os.fsync(f.fileno())
 
