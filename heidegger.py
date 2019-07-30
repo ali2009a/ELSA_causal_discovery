@@ -997,9 +997,9 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
             winLen= 1
             effectiveWeights = np.ones(winLen)
         else:
-            extractLen = len(getMatchingWeights()) 
+            extractLen = anchorDist 
             winLen = extractLen
-            effectiveWeights = getMatchingWeights()
+            effectiveWeights = np.ones(winLen)
         
         costSum = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))
 
