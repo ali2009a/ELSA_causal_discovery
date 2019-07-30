@@ -1143,24 +1143,28 @@ def runHyps():
 
 
 
-            isBiased = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
-
+            [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+            print "in runHyps"
+            print meanVals
              
 
             targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
             pval = computePValue(targetValues[0], targetValues[1])
 
 
-            if(isBiased):
-                # f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "Dont Care terms are biased"))
-                f.write("{0} pattern: {1} , pval={2:} , ACE={4: .2f} , n={3:d}; dont care terms are biased \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
-                f.flush()
-                os.fsync(f.fileno())
-                continue    
-
-
+            # if(isBiased):
+            #     # f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "Dont Care terms are biased"))
+                
+            #     f.write("{0} pattern: {1} , pval={2:} , ACE={4: .2f} , n={3:d}; dont care terms are biased, meanVals={4:} \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]), str(meanVals)))
+            #     f.flush()
+            #     os.fsync(f.fileno())
+            #     continue    
+            print meanVals
+            meanValsStr = str(meanVals)
+            print "meanValsStr:"
+            print meanValsStr
             print "pval={0:.5f} , n={1:d}\n".format(pval, len(matchedPairs))
-            f.write("{0} pattern: {1} , pval={2:} , ACE={4: .2f} , n={3:d} \n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0])))
+            f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
             f.flush()
             os.fsync(f.fileno())
 
@@ -1251,10 +1255,18 @@ def getprevWaveMIs(indexes, distanceInfo):
 
 def isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq):
     isBiased=False
+    meanValList = []
     for i in trtSeq:
         if i==2:
-            isBiased = isBiased or not haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, len(trtSeq)-(i+1))
-    return isBiased
+            resPair = haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, len(trtSeq)-(i+1))
+            resValue = resPair[0]
+            meanVal = resPair[1]
+            print "meanVal:{}".format(meanVal)          
+            isBiased = isBiased or not resValue
+            meanValList.append(round(meanVal,2))
+    print "meanValList"
+    print meanValList
+    return [isBiased, meanValList]
 
 
 def haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, offset):
@@ -1279,7 +1291,7 @@ def haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,dista
     print "Treatment Mean:{}".format(np.mean(trtVal))
     # pval = computePValue(ctrlVal, trtVal)
     # print pval
-    return np.mean(trtVal) < 0.6 and np.mean(trtVal) >0.4
+    return [np.mean(trtVal) < 0.8 and np.mean(trtVal) >0.2, np.mean(trtVal)]
 
 
 def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
