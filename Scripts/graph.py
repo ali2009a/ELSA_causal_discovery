@@ -52,12 +52,13 @@ def genSeq(prefix, k):
 
 
 class Node:
-  def __init__(self, pval=np.nan, ACE=np.nan, n= np.nan, isLowEnt = False, isBiased=False):
+  def __init__(self, pval=np.nan, ACE=np.nan, n= np.nan, isLowEnt = False, isBiased=False, DCmeans=[]):
 	self.pval = pval
 	self.ACE = ACE
 	self.n=n    
 	self.isLowEnt = isLowEnt  
 	self.isBiased= isBiased
+	self.DCMeans = DCmeans
 
 def genrateAllNodes(n=4):
 	genSeq([],n)
@@ -67,17 +68,16 @@ def genrateAllNodes(n=4):
 	return dic
 
 def readExecutedLowEntNodes(nodes):
-	with open("../result.txt") as f:
+	with open("result_n3.txt") as f:
 		for line in f:
 			parts = line.split(",")
 			pattern = re.sub("[^0-9]", "", parts[0].split(":")[1])
-			pval =  parts[1].split("=")[1].strip()
+			pval = float(parts[1].split("=")[1].strip())
 			ACE= parts[2].split("=")[1].strip()
-			n= parts[3].split("=")[1].strip()
-			if ";" in line:
-				nodes [ pattern] = Node(pval, ACE, n, True, True)
-			else:
-				nodes [ pattern] = Node(pval, ACE, n, True, False)
+			n= int(parts[3].split("=")[1].strip())
+			DCmeans = parts[4].split("=")[1].strip()[1:-1].split(" ")
+			DCmeans=[float(i) for i in DCmeans if len(i)>0]
+			nodes [ pattern] = Node(pval, ACE, n, True, np.nan, DCmeans)
 	return nodes
 
 def createGraph(nodes):
@@ -96,11 +96,29 @@ def writeGraphtoFile(graph, nodes):
 		for pattern, node in graph.iteritems():
 			# if not (nodes[pattern].isLowEnt) or (nodes[pattern].isBiased):
 			#     continue
-			if  nodes[pattern].isBiased:   
-				f.write('\t{} [color="red",label="{}, pval:{}"];\n'.format(pattern, pattern, nodes[pattern].pval))
+			isBiased=False
 			
+			if (len(nodes[pattern].DCMeans)>0):
+				DCTStr="DCTM:"	
+				for idx, i in enumerate(nodes[pattern].DCMeans):
+					if (idx==0):
+						DCTStr=DCTStr+ str(i)
+					else:
+						DCTStr= DCTStr+","+ str(i)
+					if not (i<0.8 and i>0.2):
+						isBiased=True
 			else:
-				f.write('\t{} [label="{}, pval:{}"];\n'.format(pattern, pattern, nodes[pattern].pval))
+				DCTStr=""
+
+
+			
+			isBiasedStr= ""
+			if (isBiased):
+				isBiasedStr = ",color=red"
+
+			
+			# for j in nodes[pattern].DCMeans:	
+			f.write('\t{0} [label="{1}, pval:{2:.1E},{3}"{4}];\n'.format(pattern, pattern, nodes[pattern].pval,DCTStr, isBiasedStr))
 		for pattern, adjList in graph.iteritems(): 
 			for adjPattern in adjList:
 				# print pattern, adjPattern
@@ -113,6 +131,7 @@ def writeGraphtoFile(graph, nodes):
 
 def main():
 	nodes = genrateAllNodes(3)
+	print len(nodes)
 	# A  = np.array(patterns)
 	# np.savetxt("LowH_Hyp.csv", A.astype(int), delimiter=",",fmt='%s')
 	nodes = readExecutedLowEntNodes(nodes)
