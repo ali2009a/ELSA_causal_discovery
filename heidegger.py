@@ -992,12 +992,16 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
         if (anchorPoint<0):
             anchorPoint=0
         anchorDist = len(trtSeq)- anchorPoint
+
+        anchorPoint2 = (np.where(trtSeq!=2)[0][0])
+        anchorDist2 = len(trtSeq)- anchorPoint2   
+        
         if (isTargetVar):
             extractLen = anchorDist
             winLen= 1
             effectiveWeights = np.ones(winLen)
         else:
-            extractLen = anchorDist 
+            extractLen = anchorDist2 
             winLen = extractLen
             effectiveWeights = np.ones(winLen)
         
