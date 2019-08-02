@@ -1517,7 +1517,7 @@ def evaluate(var, trtSeq):
     if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
         with open("searchResult.txt","a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
-        cache[trtSeq] = np.nan
+        cache[array2id(trtSeq)] = np.nan
         return np.nan
 
     C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
@@ -1525,7 +1525,7 @@ def evaluate(var, trtSeq):
     if (len(matchedPairs)<4):
         with open("searchResult.txt", "a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
-        cache[trtSeq] = np.nan
+        cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
     [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
@@ -1537,10 +1537,10 @@ def evaluate(var, trtSeq):
     
     
     if (isBiased):
-        cache[trtSeq]= np.nan
+        cache[array2id(trtSeq)]= np.nan
         return np.nan
     else:
-        cache[trtSeq]= pval
+        cache[array2id(trtSeq)]= pval
         return pval
 
 
