@@ -1570,9 +1570,9 @@ def search(var, s, LowE_Path):
             print "best so far changed"
             bestSoFarID= minID
             bestSoFarVal = minVal
-        # else:
-        #     print "goint to break"
-        #     break
+        else:
+            print "goint to break"
+            break
 
         for v in getNeighbours(minID):
             if (v in U):
