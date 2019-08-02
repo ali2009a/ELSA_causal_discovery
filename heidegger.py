@@ -1489,8 +1489,8 @@ def getNeighbours(h):
 
 cache={}
 def evaluate(var, trtSeq):
-    if array2id(trtSeq) in cache:
-        return cache[array2id(trtSeq)]
+    if trtSeq in cache:
+        return cache[trtSeq]
 
     if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
         df = pd.read_pickle(dfPath)
@@ -1500,8 +1500,6 @@ def evaluate(var, trtSeq):
         df, nanLabel = preprocess(df)
 
     trtSeq = id2array(trtSeq)
-    print type(trtSeq)
-    print trtSeq
     weights = (~(trtSeq==2)).astype(int)
     trtSignal = (trtSeq,weights)                
     distanceInfoT = measureSimilarity(var, trtSignal, df, nanLabel)
@@ -1519,7 +1517,7 @@ def evaluate(var, trtSeq):
     if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
         with open("searchResult.txt","a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
-        cache[array2id(trtSeq)] = np.nan
+        cache[trtSeq] = np.nan
         return np.nan
 
     C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
@@ -1527,7 +1525,7 @@ def evaluate(var, trtSeq):
     if (len(matchedPairs)<4):
         with open("searchResult.txt", "a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
-        cache[array2id(trtSeq)] = np.nan
+        cache[trtSeq] = np.nan
         return np.nan             
 
     [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
@@ -1539,10 +1537,10 @@ def evaluate(var, trtSeq):
     
     
     if (isBiased):
-        cache[array2id(trtSeq)]= np.nan
-        return np.nan:
+        cache[trtSeq]= np.nan
+        return np.nan
     else:
-        cache[array2id(trtSeq)]= pval
+        cache[trtSeq]= pval
         return pval
 
 
