@@ -834,15 +834,15 @@ def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
 
 def measureSimilarity(var, signal, df, nanLabel):
     [samplesNum, columnsNum] = df.shape
-    distanceValues = np.empty((samplesNum*WAVE_NUM,3))   #to be fixed
-    # distanceValues = np.empty((7*1000,3))
+    # distanceValues = np.empty((samplesNum*WAVE_NUM,3))   #to be fixed
+    distanceValues = np.empty((7*1000,3))
     distanceValues[:] = np.nan
 
 
     windowLength = len(signal[0])
     counter= 0
-    for index in tqdm(range(0, len(df))):   #to be fixed
-    # for index in tqdm(range(0,1000)):
+    # for index in tqdm(range(0, len(df))):   #to be fixed
+    for index in tqdm(range(0,1000)):
         # print "index", index  
         for w in range(8,15):
         # for w in [11]:
@@ -1426,5 +1426,179 @@ def computeDiff(ids, df):
 
 
 
+def fetchLEHyps(path):
+    hyps = genfromtxt(path, delimiter=',')
+    hyps = hyps[1:,:-1] 
+    LEHyps = set()
+    for i in range(len(hyps)):
+        seq = hyps[i,:].astype(int)
+        print seq
+        if (seq==1).any():
+            strSeq= str(seq)
+            pattern = re.sub("[^0-9]", "",strSeq)
+            LEHyps.add(pattern)
+    print LEHyps
+    return LEHyps
+
+def splitStr(word): 
+    return [int(char) for char in word]
+
+def array2id(array):
+    strSeq= str(array.astype(int))
+    pattern = re.sub("[^0-9]", "",strSeq)
+    return pattern
+
+def id2array(id):
+    charList = splitStr(id)
+    return np.array(charList)
+
+def getNeighbours(h):
+    neighbours= set()
+    for i in range(0,len(h)):
+        for j in [0,1,2]:
+            if int(h[i])!= j:
+                t= id2array(h)
+                t[i]=j
+                neighbours.add(array2id(t))
+    return neighbours
+
+# def evaluate(var, trtSeq):
+#     pvals = {
+# "001": 0.0940618851493,
+# "010": 0.220666932262,
+# "011": 4.56538888534e-06,
+# "012": 1.36081090715e-05,
+# "021": 5.20254263439e-08,
+# "100": 0.599608704212,
+# "101": 0.000422794877288,
+# "102": 0.0282634922079,
+# "110": 0.00457976459746,
+# "111": 0.000241111600374,
+# "112": 2.50396924891e-05,
+# "120": 0.212761805018,
+# "121": 0.000613897909022,
+# "122": 0.00123168476547,
+# "201": 0.00616095632461,
+# "210": 0.00219695225111,
+# "211": 5.26449229881e-06,
+# "212": 1.31416673629e-05,
+# "221": 0.00144933730433,
+#     }
+#     return pvals[trtSeq]
+
+def evaluate(var, trtSeq):
+    if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
+        df = pd.read_pickle(dfPath)
+        nanLabel = pd.read_pickle(nanLabelPath)
+    else:
+        df = readData()
+        df, nanLabel = preprocess(df)
+
+    trtSeq = id2array(trtSeq)
+    print type(trtSeq)
+    print trtSeq
+    weights = (~(trtSeq==2)).astype(int)
+    trtSignal = (trtSeq,weights)                
+    distanceInfoT = measureSimilarity(var, trtSignal, df, nanLabel)
+    outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
+
+    anchorPoint = (np.where(trtSeq!=2)[0][0])
+    anchorDist = len(trtSeq)- anchorPoint
+    ctrlSeq = np.zeros(anchorDist)
+    ctrlWeights = np.ones(anchorDist)
+    ctrlSignal = (ctrlSeq, ctrlWeights)
+
+    distanceInfoC = measureSimilarity(var, ctrlSignal, df, nanLabel)
+    outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")
+
+    if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
+        return np.nan
+
+    C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
+    matchedPairs = performMatching(C)
+    if (len(matchedPairs)<4):
+        return np.nan             
+
+    [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+    targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
+    pval = computePValue(targetValues[0], targetValues[1])
+    return pval
+
+
+def findMin(U, pVals):
+    minVal = 2
+    minID = -1
+    for hypID in U:
+        if(pVals[hypID]<minVal):
+            minVal = pVals[hypID]
+            minID = hypID
+    return (minID, minVal)  
+
+
+def search(var, s, LowE_Path):
+    # var="heactb"
+    # s = "212"
+    pVals={}
+    prev = {}
+    U = fetchLEHyps(LowE_Path)
+    print U
+    for hypId in U:
+        pVals[hypId] = 2
+        prev[hypId] = "nan"
+
+    pVals[s]=evaluate(var, s)
+    
+    bestSoFarVal =  pVals[s]
+    bestSoFarID = s
+
+    print pVals
+
+    print bestSoFarID
+    print bestSoFarVal
+
+
+    counter= 0
+    while(len(U)>0):
+        print "it : {}".format(counter)
+        minID, minVal=findMin(U, pVals)
+        
+        
+        if (minVal >1):
+            break
+        print "min ID:{}, min value:{}, bestSoFarVal:{}".format(minID, minVal, bestSoFarVal)
+        if (minVal<=bestSoFarVal):
+            print "best so far changed"
+            bestSoFarID= minID
+            bestSoFarVal = minVal
+        # else:
+        #     print "goint to break"
+        #     break
+
+        for v in getNeighbours(minID):
+            if (v in U):
+                pVals[v] = evaluate(var, v)
+                prev[v] = minID
+        U.remove(minID)
+        counter=counter+1
+
+    print bestSoFarID
+    print bestSoFarVal
+    print pVals
+    printPath(bestSoFarID, prev)
+    return (pVals, prev, bestSoFarID)
+
+
+def printPath(node, prev):
+    print "prev[node]:",prev[node]
+    if ( prev[node]=="nan"):
+        print node,
+    else:
+        printPath(prev[node], prev)
+        print "->",
+        print node,
+
+
 if __name__ == "__main__":
     print "a"
+
+
