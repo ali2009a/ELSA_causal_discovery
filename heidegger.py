@@ -1295,7 +1295,7 @@ def haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,dista
     print "Treatment Mean:{}".format(np.mean(trtVal))
     # pval = computePValue(ctrlVal, trtVal)
     # print pval
-    return [np.mean(trtVal) < 0.9 and np.mean(trtVal) >0.9, np.mean(trtVal)]
+    return [np.mean(trtVal) < 0.9 and np.mean(trtVal) >0.1, np.mean(trtVal)]
 
 
 def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
@@ -1486,7 +1486,12 @@ def getNeighbours(h):
 #     }
 #     return pvals[trtSeq]
 
+
+cache={}
 def evaluate(var, trtSeq):
+    if array2id(trtSeq) in cache:
+        return cache[array2id(trtSeq)]
+
     if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
         df = pd.read_pickle(dfPath)
         nanLabel = pd.read_pickle(nanLabelPath)
@@ -1514,6 +1519,7 @@ def evaluate(var, trtSeq):
     if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
         with open("searchResult.txt","a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
+        cache[array2id(trtSeq)] = np.nan
         return np.nan
 
     C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
@@ -1521,6 +1527,7 @@ def evaluate(var, trtSeq):
     if (len(matchedPairs)<4):
         with open("searchResult.txt", "a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
+        cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
     [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
@@ -1529,7 +1536,14 @@ def evaluate(var, trtSeq):
     with open("searchResult.txt","a") as f:
         meanValsStr = str(meanVals)
         f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
-    return pval
+    
+    
+    if (isBiased):
+        cache[array2id(trtSeq)]= np.nan
+        return np.nan:
+    else:
+        cache[array2id(trtSeq)]= pval
+        return pval
 
 
 def findMin(U, pVals):
