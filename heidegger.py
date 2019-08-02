@@ -16,6 +16,7 @@ from sklearn.cluster import KMeans
 from tqdm import tqdm
 dfPath = "df.pkl"
 nanLabelPath= "nanLabel.pkl"
+import pickle
 
 
 #"scako" was removed because wave 1 had different scale
@@ -1603,7 +1604,14 @@ def search(var, s, LowE_Path):
     print bestSoFarID
     print bestSoFarVal
     print pVals
+    print prev
     printPath(bestSoFarID, prev)
+    with open('pVals.txt', 'w') as file:
+        file.write(pickle.dumps(pVals)) 
+    
+    with open('prev.txt', 'w') as file:
+        file.write(pickle.dumps(prev)) 
+
     return (pVals, prev, bestSoFarID)
 
 
