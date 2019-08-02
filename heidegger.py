@@ -1295,7 +1295,7 @@ def haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,dista
     print "Treatment Mean:{}".format(np.mean(trtVal))
     # pval = computePValue(ctrlVal, trtVal)
     # print pval
-    return [np.mean(trtVal) < 0.8 and np.mean(trtVal) >0.2, np.mean(trtVal)]
+    return [np.mean(trtVal) < 0.9 and np.mean(trtVal) >0.9, np.mean(trtVal)]
 
 
 def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
@@ -1512,16 +1512,23 @@ def evaluate(var, trtSeq):
     outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")
 
     if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
+        with open("searchResult.txt","a") as f:
+            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
         return np.nan
 
     C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
     matchedPairs = performMatching(C)
     if (len(matchedPairs)<4):
+        with open("searchResult.txt", "a") as f:
+            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
         return np.nan             
 
     [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
     targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
     pval = computePValue(targetValues[0], targetValues[1])
+    with open("searchResult.txt","a") as f:
+        meanValsStr = str(meanVals)
+        f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
     return pval
 
 
