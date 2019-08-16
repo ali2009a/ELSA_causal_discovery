@@ -1,4 +1,3 @@
-print "loooooooooooooooooooaded"
 REFUSAL=-9
 DONT_KNOW=-8
 NOT_APPLICABLE=-1

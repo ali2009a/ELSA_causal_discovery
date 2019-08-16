@@ -68,7 +68,7 @@ def genrateAllNodes(n=4):
 	return dic
 
 def readExecutedLowEntNodes(nodes):
-	with open("result_n3.txt") as f:
+	with open("../results/result_n3_CW_Anch_S_17000.txt") as f:
 		for line in f:
 			parts = line.split(",")
 			pattern = re.sub("[^0-9]", "", parts[0].split(":")[1])

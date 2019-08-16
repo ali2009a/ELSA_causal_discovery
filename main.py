@@ -30,7 +30,7 @@ weights = {"scfrda":1,"scfrdg":1,"scfrdm":1,"heacta":1, "heactb":1,"heactc":1, "
 
 
 
-basePath = "C:/Users/aarab/Downloads/UKDA-5050-stata/stata/stata11_se"
+basePath = "/home/ali/Downloads/UKDA-5050-stata_3/stata/stata11_se"
 REFUSAL=-9
 DONT_KNOW=-8
 NOT_APPLICABLE=-1
@@ -1073,14 +1073,15 @@ def normalizeArray(D):
 		
 
 def getCriticalVars(indVariable, waveNum):
-	cols= [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex"]
+	cols= [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
 	res = []
 	for var in cols:
-		res.append("{}_{}".format(var, waveNum-2))
-	for w in range(waveNum-2,waveNum+1):
-		res.append("{}_{}".format(indVariable, w))
-	for w in [w-2,w]:
-		res.append("{}_{}".format(list(targetVar)[0], w))
+		for i in [waveNum-2, waveNum-1,waveNum]:
+			res.append("{}_{}".format(var, i))
+	for i in range(waveNum-2,waveNum+1):
+		res.append("{}_{}".format(indVariable, i))
+	for i in [waveNum-2,waveNum]:
+		res.append("{}_{}".format(list(targetVar)[0], i))
 	return res
 
 def getFeatureImportance(df, indVariable):
@@ -1088,6 +1089,7 @@ def getFeatureImportance(df, indVariable):
 
 	dfo = df.copy()
 	cols = (trtmntVar | confoundersVar | targetVar)-set([indVariable])
+	print cols
 	cols = list(cols)
 	targetValues =  np.array([], dtype=np.int64).reshape(0,1)
 	totalMIs =  np.array([], dtype=np.int64).reshape(0,1)
@@ -1125,7 +1127,7 @@ def getFeatureImportance(df, indVariable):
 	data= np.concatenate( (features, totalTrts), axis=1)
 	refinedDF = pd.DataFrame(data= data, columns=(cols+indVarCols))
 	refinedDF["target"] = totalMIs.reshape(len(totalMIs))
-	refinedDF.to_csv("refinedDF.csv", index=False)
+	refinedDF.to_csv("refinedDF_{}.csv".format(indVariable), index=False)
     #feather.write_dataframe(refinedDF, "/home/ali/Documents/SFU/Research/dementia/R/refined_df_{}.feather".format(indVariable))
 
 	kmean = runKMean(targetValues,K)
