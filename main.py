@@ -1025,15 +1025,14 @@ def fitLine(D, degree, f_num):
 
 
 def getFeaturesFromIDs(IDs, variables, df):
-	F = np.zeros(shape=(len(IDs),len(variables)))
+	F = np.zeros(shape=(len(IDs),len(variables)*3))
 	for i, pair in enumerate(IDs):
-		#print "i",  i
 		tid = pair[0]
 		tid = df.index[tid]
 		w = pair[1]
 		columns=[]
 	        for var in variables:
-                	for offset in [2]:
+                	for offset in [2,1,0]:
                         	columns.append("{}_{}".format(var, w-offset))
 		F[i,:]=np.array(df.loc[tid,columns])
 	return F
@@ -1072,17 +1071,55 @@ def normalizeArray(D):
 	return D2
 		
 
-def getCriticalVars(indVariable, waveNum):
-	cols= [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
+def getCriticalVars(indVariable, waveNum, features):
+	# cols= [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
 	res = []
-	for var in cols:
-		for i in [waveNum-2, waveNum-1,waveNum]:
+	for var in features:
+		for i in [waveNum-2,waveNum-1,waveNum]:
 			res.append("{}_{}".format(var, i))
 	for i in range(waveNum-2,waveNum+1):
 		res.append("{}_{}".format(indVariable, i))
 	for i in [waveNum-2,waveNum]:
 		res.append("{}_{}".format(list(targetVar)[0], i))
 	return res
+
+
+def getFeatures(indVariable,df):
+	dfo = df.copy()
+	cols = [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
+
+	totalMIs =  np.array([], dtype=np.int64).reshape(0,1)
+	features =  np.array([], dtype=np.int64).reshape(0,len(cols)*3)	
+	
+	for waveNum in  range(3,8):
+		df= dfo.copy()
+		indVars = [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
+		criticalVars = getCriticalVars(indVariable, waveNum, cols)
+		df= df.dropna(subset = criticalVars)
+		ids = detectTreatedGroup(df,indVariable, waveNum)
+		
+		MIs  = getMIsFromID(ids, df )
+		D= np.array(MIs)	
+		diff = D[:,2]-D[:,0]
+		diff = diff.reshape(len(diff),1)
+		totalMIs = np.concatenate( (totalMIs, diff), axis=0)
+		
+		S= getFeaturesFromIDs(ids, cols, df)
+		features= np.concatenate( (features, S), axis=0)	
+
+	indVarCols=[]
+	for var in cols:
+			for offset in [2,1,0]:
+				indVarCols.append("{}_{}".format(var, 3-offset))
+
+	refinedDF = pd.DataFrame(data= features, columns=(indVarCols))
+	refinedDF["target"] = totalMIs.reshape(len(totalMIs))
+
+	for col in cols:
+		newCol = refinedDF["{}_{}".format(var, 3)] + refinedDF["{}_{}".format(var,2)]+refinedDF["{}_{}".format(var, 1)] 
+		refinedDF[col] = newCol 
+
+	refinedDF.to_csv("refinedDF_{}.csv".format(indVariable), index=False)
 
 def getFeatureImportance(df, indVariable):
 	K=2
