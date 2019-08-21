@@ -1081,20 +1081,24 @@ def getCriticalVars(indVariable, waveNum, features):
 		res.append("{}_{}".format(indVariable, i))
 	for i in [waveNum-2,waveNum]:
 		res.append("{}_{}".format(list(targetVar)[0], i))
+	print "vars:"
+	print res
 	return res
 
 
 def getFeatures(indVariable,df):
 	dfo = df.copy()
-	cols = [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
-
+	
+	cols = ["indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb", "baseMemIndex"]
+	criticalVarsBase = ["indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
+	
 	totalMIs =  np.array([], dtype=np.int64).reshape(0,1)
 	features =  np.array([], dtype=np.int64).reshape(0,len(cols)*3)	
 	
 	for waveNum in  range(3,8):
 		df= dfo.copy()
 		indVars = [ "indager",  "hehelf",  "totwq10_bu_s", "scfrdm",  "dhsex", "scorg05", "heactb"]
-		criticalVars = getCriticalVars(indVariable, waveNum, cols)
+		criticalVars = getCriticalVars(indVariable, waveNum, criticalVarsBase)
 		df= df.dropna(subset = criticalVars)
 		ids = detectTreatedGroup(df,indVariable, waveNum)
 		
@@ -1112,12 +1116,16 @@ def getFeatures(indVariable,df):
 			for offset in [2,1,0]:
 				indVarCols.append("{}_{}".format(var, 3-offset))
 
+	
 	refinedDF = pd.DataFrame(data= features, columns=(indVarCols))
 	refinedDF["target"] = totalMIs.reshape(len(totalMIs))
 
-	for col in cols:
+	for var in criticalVarsBase:
+		print "{}_{}".format(var, 3)
+		print "{}_{}".format(var,2)
+		print "{}_{}".format(var, 1)
 		newCol = refinedDF["{}_{}".format(var, 3)] + refinedDF["{}_{}".format(var,2)]+refinedDF["{}_{}".format(var, 1)] 
-		refinedDF[col] = newCol 
+		refinedDF[var] = newCol 
 
 	refinedDF.to_csv("refinedDF_{}.csv".format(indVariable), index=False)
 
