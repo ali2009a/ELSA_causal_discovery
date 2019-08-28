@@ -29,7 +29,7 @@ drvVar = set(["memIndexChange", "baseMemIndex"])  #1
 allVar = trtmntVar|confoundersVar|targetVar
 WAVE_NUM=7
 weights = {"scfrda":1,"scfrdg":1,"scfrdm":1,"heacta":1, "heactb":1,"heactc":1, "scorg03":1,"scorg06":1,"scorg05":1,"scorg07":1,"heskb":1,"indager":2, "hehelf":1,"dhsex":1,"totwq10_bu_s":1,"baseMemIndex":1}
-reverseVars = ["heacta", "heactb", "heactc", "scfrdg", "scfrda"]
+reverseVars = ["heacta", "heactb", "heactc", "scfrdg", "scfrda", "hehelf"]
 # continousVars = ["heskb, scfrdm"]
 
 basePath = "/home/ali/Downloads/UKDA-5050-stata (2)/stata/stata13_se"
@@ -855,13 +855,9 @@ def measureSimilarity(var, signal, df, nanLabel):
                 col = "{}_n_{}".format(var,i)
                 cols.append(col)
 
-            seq = np.array(df.loc[index, cols])
-            seqLabel = np.array(nanLabel.loc[index, cols])
-            # print seq
-            # print seqLabel
-            # print signal
+            seq = np.array(df.ix[index, cols])
+            seqLabel = np.array(nanLabel.ix[index, cols])
             diff = computeDistance(seq, signal[0], seqLabel, weights=signal[1])
-            # print diff
             distanceValues[counter,:]=  [int(index), int(w), diff]
             counter = counter+1     
     return distanceValues

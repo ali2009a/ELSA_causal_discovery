@@ -852,26 +852,26 @@ def readTreatedGroup():
 def detectTreatedGroup(df, indVariable, waveNum):
 	res = []
 	for waveNumber in range(waveNum,waveNum+1):	
-        	varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
-        	varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
-        	varPrev2Wave = "{}_b_{}".format(indVariable, waveNumber-2)
-        	memIndexChangeVar = "memIndexChange_{}".format(waveNumber)
+		varCurrWave = "{}_b_{}".format(indVariable, waveNumber)
+		varPrevWave = "{}_b_{}".format(indVariable, waveNumber-1)
+		varPrev2Wave = "{}_b_{}".format(indVariable, waveNumber-2)
+		memIndexChangeVar = "memIndexChange_{}".format(waveNumber)
 
-        	currentWave  = np.array(df[varCurrWave])
-        	prevWave = np.array(df[varPrevWave])
-        	prev2Wave = np.array(df[varPrev2Wave])
-        	memChange = np.isnan(df.loc[:,memIndexChangeVar]).astype(int)
+		currentWave  = np.array(df[varCurrWave])
+		prevWave = np.array(df[varPrevWave])
+		prev2Wave = np.array(df[varPrev2Wave])
+		memChange = np.isnan(df.loc[:,memIndexChangeVar]).astype(int)
 
-        	T = np.multiply(1- prev2Wave, prevWave)
-        	T = np.multiply(T, currentWave)
-        	T=  np.multiply(T, 1-memChange)
+		T = np.multiply(1- prev2Wave, prevWave)
+		T = np.multiply(T, currentWave)
+		T=  np.multiply(T, 1-memChange)
 
-        	treatmentIndexes = np.where(T==1)[0]
+		treatmentIndexes = np.where(T==1)[0]
 		pairs = zip( treatmentIndexes,  np.repeat(waveNumber, len(treatmentIndexes)) )
-#		print pairs.shape
+	#		print pairs.shape
 		res = res+ pairs
 		
-        return res
+	return res
 
 
 
@@ -1124,7 +1124,7 @@ def getFeatures(indVariable,df):
 		print "{}_{}".format(var, 3)
 		print "{}_{}".format(var,2)
 		print "{}_{}".format(var, 1)
-		newCol = refinedDF["{}_{}".format(var, 3)] + refinedDF["{}_{}".format(var,2)]+refinedDF["{}_{}".format(var, 1)] 
+		newCol = (refinedDF["{}_{}".format(var, 3)] + refinedDF["{}_{}".format(var,2)]+refinedDF["{}_{}".format(var, 1)] )/3
 		refinedDF[var] = newCol 
 
 	refinedDF.to_csv("refinedDF_{}.csv".format(indVariable), index=False)
