@@ -935,33 +935,33 @@ def computeSimilarityMatrix(D):
 
 def runKMean(D, k):
 
-	#Sum_of_squared_distances = []
-	#silhouette_scores = []
-	#K = range(2,10)
-	#for k in K:
-	#    km = KMeans(n_clusters=k)
-	#    km = km.fit(D)
-	#    labels= km.labels_
-	#    print len(labels)
-	#    print len(D)
-	#
-	#    Sum_of_squared_distances.append(km.inertia_)
-	#    silhouette_scores.append(silhouette_score(D, labels))
-	#
-	# plt.plot(K, Sum_of_squared_distances, 'bx-')
-	# plt.xlabel('k')
-	# plt.ylabel('Sum_of_squared_distances')
+	Sum_of_squared_distances = []
+	silhouette_scores = []
+	K = range(2,20)
+	for k in K:
+	   km = KMeans(n_clusters=k)
+	   km = km.fit(D)
+	   labels= km.labels_
+	   print len(labels)
+	   print len(D)
+	
+	   Sum_of_squared_distances.append(km.inertia_)
+	   silhouette_scores.append(silhouette_score(D, labels))
+	
+	plt.plot(K, Sum_of_squared_distances, 'bx-')
+	plt.xlabel('k')
+	plt.ylabel('Sum_of_squared_distances')
+	plt.title('Elbow Method For Optimal k')
+	plt.show()
+
+	plt.plot(K, silhouette_scores, 'bx-')
+	plt.xlabel('k')
+	plt.ylabel('silhouette scores')
 	# plt.title('Elbow Method For Optimal k')
-	# plt.show()
-
-	#plt.plot(K, silhouette_scores, 'bx-')
-	#plt.xlabel('k')
-	#plt.ylabel('silhouette scores')
-	## plt.title('Elbow Method For Optimal k')
-	#plt.show()
+	plt.show()
 
 
-	#return Sum_of_squared_distances
+	return Sum_of_squared_distances
 
 	kmeans = KMeans(n_clusters=k, n_init=100 )
 	kmeans.fit(D)

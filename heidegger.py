@@ -573,6 +573,42 @@ def performMatching(C):
     # return passedPairs
 
 
+def doRandomMatching(k, labels, trtNUM):
+    indices = np.where(labels==k)[0]
+
+    trt = np.where(indices<trtNUM)[0]
+    ctrl = np.where(indices>=trtNUM)[0]
+
+    if (len(trt)<len(ctrl)):
+        ctrl = np.random.choice(ctrl, len(trt), replace=False)
+    else:
+        trt = np.random.choice(trt, len(ctrl), replace=False)
+
+    return zip(trt,ctrl)
+    
+
+def performMatching_RBD(C, trtNUM):
+    CLUSTER_NUM=22
+    km = KMeans(n_clusters=CLUSTER_NUM)
+    km = km.fit(C)
+    labels = km.labels_
+    finalPairs = []
+    for k in range(0, CLUSTER_NUM):
+        pairs= doRandomMatching(k, labels, trtNUM)
+        finalPairs = finalPairs+ pairs
+    return finalPairs
+
+
+    costs = []
+    for pair in finalPairs:
+        costs.append(C[pair[0], pair[1]])
+
+    costs = np.array(costs)
+    passedPairs = [pair for idx, pair in enumerate(finalPairs) if costs[idx]< 0.01 ]           
+    return passedPairs
+
+
+
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
     memTotChangeVar = "memIndexChange_{}".format(waveNumber)
     controlIndexes = treatmentGroups[0]
@@ -1038,7 +1074,86 @@ def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIn
     confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, trtSeq)
     targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, trtSeq)
     C= (trtDist + confDist + 198*targetDist)/200
+    np.savetxt('X_Dist.csv', trtDist, delimiter=',')
+    np.savetxt('Z_Dist.csv', confDist, delimiter=',')
+    np.savetxt('Y_Dist.csv', targetDist, delimiter=',')
+
     return C
+
+
+
+
+
+def computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, varSet, isTargetVar, trtSeq):
+        alpha = 0.3
+        anchorPoint = (np.where(trtSeq==1)[0][0]-1)
+        if (anchorPoint<0):
+            anchorPoint=0
+        anchorDist = len(trtSeq)- anchorPoint
+
+        anchorPoint2 = (np.where(trtSeq!=2)[0][0])
+        anchorDist2 = len(trtSeq)- anchorPoint2   
+        
+        if (isTargetVar):
+            extractLen = anchorDist
+            winLen= 1
+            effectiveWeights = np.ones(winLen)
+        else:
+            extractLen = anchorDist2 
+            winLen = extractLen
+            effectiveWeights = np.ones(winLen)
+        
+        totalNum = len(outliersIndexT)+len(outliersIndexC)
+        costSum = np.zeros(shape = (totalNum,totalNum))
+        print costSum.shape
+        for var in (varSet):
+            T = np.zeros(shape = (totalNum, winLen))
+            C = np.zeros(shape = (totalNum, winLen))
+            TL = np.zeros(shape = (totalNum, winLen))
+            CL = np.zeros(shape = (totalNum, winLen))
+            
+            ids = []
+            for i in range(0,len(outliersIndexT)):
+                ids.append((distanceInfoT[outliersIndexT[i],0], distanceInfoT[outliersIndexT[i],1]))
+
+            for j in range(0,len(outliersIndexC)):
+                ids.append((distanceInfoC[outliersIndexC[j],0], distanceInfoC[outliersIndexC[j],1]))
+
+
+            for i, pair in enumerate(ids):
+                seqs =extractSeq(df, nanLabel, var, pair[0], pair[1], isTargetVar, length = extractLen)
+                T[i,:] = seqs[0][:winLen] # to discard memIndex for the current weight (right most one)
+                TL[i,:] = seqs[1][:winLen]
+            C = T.copy()
+            CL = TL.copy()
+            
+            T = T.reshape(T.shape[0], 1, T.shape[1])
+            TL = TL.reshape(TL.shape[0], 1, TL.shape[1])
+            diff = np.abs(T-C)  
+            isNan = np.logical_or(TL,CL).astype(int)
+            penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)           
+            penalizedDiff =  np.isnan(penalizedDiff).astype(int)*np.ones(penalizedDiff.shape, dtype=int) + (1 - np.isnan(penalizedDiff).astype(int))*np.nan_to_num(penalizedDiff)
+            weightedDiff  = penalizedDiff * effectiveWeights
+            aggregatedCost =np.sum(weightedDiff,axis=2)
+            varCost = aggregatedCost / np.sum(effectiveWeights)
+            print varCost.shape
+            costSum = costSum + varCost
+
+        avgCost= costSum/float(len(varSet))
+        return avgCost
+
+def computeDistanceMatrix2_RBD(df, nanLabel, trtVariable, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq):
+
+    trtDist= computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, trtSeq)
+    confDist= computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, trtSeq)
+    targetDist=computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, trtSeq)
+    C= (trtDist + confDist + 198*targetDist)/200
+    np.savetxt('X_Dist.csv', trtDist, delimiter=',')
+    np.savetxt('Z_Dist.csv', confDist, delimiter=',')
+    np.savetxt('Y_Dist.csv', targetDist, delimiter=',')
+
+    return C
+
 
 
 def dump2DMatrix(C, var, outputPrefix): 
@@ -1172,7 +1287,7 @@ def runHyps():
 
         f.close()
     
-def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var):
+def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist):
     memtotT = []
     memtotC = []
     memtotT_prev = []
@@ -1182,24 +1297,28 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
     T_ids= []
     C_ids = []
 
-    for pair in matchedPairs:
+    matchedPairs_fixed = []
+    for pair in  matchedPairs:
+        matchedPairs_fixed.append((pair[0], pair[1]-len(outliersIndexT)))
+
+    for pair in matchedPairs_fixed:
         index, w  = distanceInfoT[outliersIndexT[pair[0]],0], distanceInfoT[outliersIndexT[pair[0]], 1]
         w=int(w)
         index=  int(index)
         T_ids.append((index,w))
         col= "memIndex_{}".format(w)
-        col_prev = "memIndex_{}".format(w-MIExcludingPoints)
-        memtotT.append( df.loc[index, col])
+        col_prev = "memIndex_{}".format(w-anchorDist+1)
+        memtotT.append( df.loc[index, col]- df.loc[index, col_prev]                                                                  )
         memtotT_prev.append(df.loc[index, col_prev])
 
-    for pair in matchedPairs:
+    for pair in matchedPairs_fixed:
         index, w  = distanceInfoC[outliersIndexC[pair[1]],0],distanceInfoC[outliersIndexC[pair[1]], 1]
         w=int(w)
         index=  int(index)
         C_ids.append((index,w))
         col= "memIndex_{}".format(w)
-        col_prev = "memIndex_{}".format(w-MIExcludingPoints)
-        memtotC.append( df.loc[index, col])
+        col_prev = "memIndex_{}".format(w-anchorDist+1)
+        memtotC.append( df.loc[index, col]-df.loc[index, col_prev])
         memtotC_prev.append( df.loc[index, col_prev])
 
 
@@ -1485,6 +1604,71 @@ def getNeighbours(h):
 
 
 cache={}
+
+def evaluate_RBD(var, trtSeq):
+    if trtSeq in cache:
+        return cache[trtSeq]
+
+    if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
+        df = pd.read_pickle(dfPath)
+        nanLabel = pd.read_pickle(nanLabelPath)
+    else:
+        df = readData()
+        df, nanLabel = preprocess(df)
+
+    trtSeq = id2array(trtSeq)
+    weights = (~(trtSeq==2)).astype(int)
+    trtSignal = (trtSeq,weights)                
+    distanceInfoT = measureSimilarity(var, trtSignal, df, nanLabel)
+    outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
+
+    anchorPoint = (np.where(trtSeq!=2)[0][0])
+    anchorDist = len(trtSeq)- anchorPoint
+    ctrlSeq = np.zeros(anchorDist)
+    ctrlWeights = np.ones(anchorDist)
+    ctrlSignal = (ctrlSeq, ctrlWeights)
+
+    distanceInfoC = measureSimilarity(var, ctrlSignal, df, nanLabel)
+    outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")
+
+    if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
+        with open("searchResult.txt","a") as f:
+            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
+        cache[array2id(trtSeq)] = np.nan
+        return np.nan
+
+    #C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
+    C = computeDistanceMatrix2_RBD(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
+    matchedPairs = performMatching_RBD(C, len(outliersIndexT))
+    if (len(matchedPairs)<4):
+        with open("searchResult.txt", "a") as f:
+            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
+        cache[array2id(trtSeq)] = np.nan
+        return np.nan             
+
+    #[isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+    
+    anchorPoint = (np.where(trtSeq==1)[0][0]-1)
+    if (anchorPoint<0):
+        anchorPoint=0
+    anchorDist = len(trtSeq)- anchorPoint
+
+    targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist)
+    pval = computePValue(targetValues[0], targetValues[1])
+    with open("searchResult.txt","a") as f:
+        meanValsStr = str(meanVals)
+        f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
+    
+    
+    # if (isBiased):
+    #     cache[array2id(trtSeq)]= np.nan
+    #     return np.nan
+    # else:
+    cache[array2id(trtSeq)]= pval
+    return pval
+
+
+
 def evaluate(var, trtSeq):
     if trtSeq in cache:
         return cache[trtSeq]
@@ -1541,6 +1725,7 @@ def evaluate(var, trtSeq):
         return pval
 
 
+
 def findMin(U, pVals):
     minVal = 2
     minID = -1
@@ -1562,7 +1747,7 @@ def search(var, s, LowE_Path):
         pVals[hypId] = 2
         prev[hypId] = "nan"
 
-    pVals[s]=evaluate(var, s)
+    pVals[s]=evaluate_RBD(var, s)
     
     bestSoFarVal =  pVals[s]
     bestSoFarID = s
@@ -1601,6 +1786,8 @@ def search(var, s, LowE_Path):
     print bestSoFarVal
     print pVals
     print prev
+
+
     printPath(bestSoFarID, prev)
     with open('pVals.txt', 'w') as file:
         file.write(pickle.dumps(pVals)) 
