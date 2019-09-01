@@ -1285,10 +1285,16 @@ def runHyps():
             f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
             f.flush()
             os.fsync(f.fileno())
-
-
         f.close()
-    
+
+
+def fixPairsOffset(matchedPairs, trtNUM):
+    matchedPairs_fixed = []
+    for pair in  matchedPairs:
+        matchedPairs_fixed.append((pair[0], pair[1]-trtNUM))
+    return matchedPairs_fixed
+
+
 def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist):
     print anchorDist  
     memtotT = []
@@ -1296,15 +1302,11 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
     memtotT_prev = []
     memtotC_prev = []
 
-
     T_ids= []
     C_ids = []
 
-    matchedPairs_fixed = []
-    for pair in  matchedPairs:
-        matchedPairs_fixed.append((pair[0], pair[1]-len(outliersIndexT)))
 
-    for pair in matchedPairs_fixed:
+    for pair in matchedPairs:
         index, w  = distanceInfoT[outliersIndexT[pair[0]],0], distanceInfoT[outliersIndexT[pair[0]], 1]
         w=int(w)
         index=  int(index)
@@ -1314,7 +1316,7 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
         memtotT.append( df.loc[index, col]- df.loc[index, col_prev]                                                                  )
         memtotT_prev.append(df.loc[index, col_prev])
 
-    for pair in matchedPairs_fixed:
+    for pair in matchedPairs:
         index, w  = distanceInfoC[outliersIndexC[pair[1]],0],distanceInfoC[outliersIndexC[pair[1]], 1]
         w=int(w)
         index=  int(index)
@@ -1656,6 +1658,7 @@ def evaluate_RBD(var, trtSeq):
         anchorPoint=0
     anchorDist = len(trtSeq)- anchorPoint
 
+    matchedPairs = fixPairsOffset(matchedPairs, len(outliersIndexT))
     targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist)
     pval = computePValue(targetValues[0], targetValues[1])
     with open("searchResult.txt","a") as f:
@@ -1712,20 +1715,28 @@ def evaluate(var, trtSeq):
         cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
-    [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
-    targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
+    #[isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+    
+
+    anchorPoint = (np.where(trtSeq==1)[0][0]-1)
+    if (anchorPoint<0):
+        anchorPoint=0
+    anchorDist = len(trtSeq)- anchorPoint
+
+
+    targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist)
     pval = computePValue(targetValues[0], targetValues[1])
     with open("searchResult.txt","a") as f:
         meanValsStr = str(meanVals)
         f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
     
     
-    if (isBiased):
-        cache[array2id(trtSeq)]= np.nan
-        return np.nan
-    else:
-        cache[array2id(trtSeq)]= pval
-        return pval
+    # if (isBiased):
+    #     cache[array2id(trtSeq)]= np.nan
+    #     return np.nan
+    # else:
+    cache[array2id(trtSeq)]= pval
+    return pval
 
 
 
@@ -1750,7 +1761,7 @@ def search(var, s, LowE_Path):
         pVals[hypId] = 2
         prev[hypId] = "nan"
 
-    pVals[s]=evaluate_RBD(var, s)
+    pVals[s]=evaluate(var, s)
     
     bestSoFarVal =  pVals[s]
     bestSoFarID = s
