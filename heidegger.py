@@ -17,7 +17,7 @@ from tqdm import tqdm
 dfPath = "df.pkl"
 nanLabelPath= "nanLabel.pkl"
 import pickle
-
+from sklearn.cluster import AgglomerativeClustering
 
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
@@ -575,10 +575,8 @@ def performMatching(C):
 
 def doRandomMatching(k, labels, trtNUM):
     indices = np.where(labels==k)[0]
-
-    trt = np.where(indices<trtNUM)[0]
-    ctrl = np.where(indices>=trtNUM)[0]
-
+    trt = indices[np.where(indices<trtNUM)[0]]
+    ctrl = indices[np.where(indices>=trtNUM)[0]]
     if (len(trt)<len(ctrl)):
         ctrl = np.random.choice(ctrl, len(trt), replace=False)
     else:
@@ -589,22 +587,24 @@ def doRandomMatching(k, labels, trtNUM):
 
 def performMatching_RBD(C, trtNUM):
     CLUSTER_NUM=22
-    km = KMeans(n_clusters=CLUSTER_NUM)
-    km = km.fit(C)
-    labels = km.labels_
+    model = AgglomerativeClustering(affinity='precomputed', n_clusters=CLUSTER_NUM, linkage='complete').fit(C)
+    labels = model.labels_
+    print labels
     finalPairs = []
     for k in range(0, CLUSTER_NUM):
         pairs= doRandomMatching(k, labels, trtNUM)
         finalPairs = finalPairs+ pairs
-    return finalPairs
+    
+    print len(finalPairs) 
 
 
     costs = []
     for pair in finalPairs:
         costs.append(C[pair[0], pair[1]])
-
+    print costs
     costs = np.array(costs)
     passedPairs = [pair for idx, pair in enumerate(finalPairs) if costs[idx]< 0.01 ]           
+    print len(passedPairs)
     return passedPairs
 
 
@@ -1031,8 +1031,10 @@ def computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceIn
         
         if (isTargetVar):
             extractLen = anchorDist
-            winLen= 1
-            effectiveWeights = np.ones(winLen)
+            # winLen= 1
+            winLen= extractLen-1
+            # effectiveWeights = np.ones(winLen)
+            effectiveWeights = np.geomspace(1, (0.5)**(winLen-1) , num=winLen)
         else:
             extractLen = anchorDist2 
             winLen = extractLen
@@ -1288,6 +1290,7 @@ def runHyps():
         f.close()
     
 def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist):
+    print anchorDist  
     memtotT = []
     memtotC = []
     memtotT_prev = []
