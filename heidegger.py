@@ -1836,6 +1836,35 @@ def getPvalStats(pVals):
     return (calclulated, pruned, notReached)   
 
 
+def HRClustering(D):
+    n = len(D)
+    V = range(0,n)
+    while(len(np.unique(V)>1)):
+        [A, B, dmax] = findMinPairs(V,D)
+        if dmax > C:
+            break
+        ind = np.concatenate((np.where(V==A ),np.where(V==B)), axis=1).flatten() 
+        V[ind] = A
+
+def findMinPairs(V,D):
+    v = np.unique(V)
+    n = len(v)
+    d = -np.ones((n,n))
+    for i in range(1:n):
+        AInd = (np.where(V==v[i] )
+        for j in range(i+1,n+1):
+            BInd = (np.where(V==v[j]))
+            d[i,j] = clusterDist(AInd,BInd,D)
+    dmax = np.min(d[np.where(d>-1)])
+    L= np.where(d==dmax)[0][0]
+    R= np.where(d==dmax)[1][0]
+    return (v[L], v[R])
+
+
+def clusterDist(AInd,BInd,D):
+    
+
+
 if __name__ == "__main__":
     print "a"
 
