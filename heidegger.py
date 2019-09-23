@@ -18,6 +18,8 @@ dfPath = "df.pkl"
 nanLabelPath= "nanLabel.pkl"
 import pickle
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.utils.extmath import cartesian
+
 
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
@@ -586,8 +588,8 @@ def doRandomMatching(k, labels, trtNUM):
     
 
 def performMatching_RBD(C, trtNUM):
-    CLUSTER_NUM=22
-    model = AgglomerativeClustering(affinity='precomputed', n_clusters=CLUSTER_NUM, linkage='complete').fit(C)
+    # CLUSTER_NUM=22
+    model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.3).fit(C)
     labels = model.labels_
     print labels
     finalPairs = []
@@ -1835,34 +1837,42 @@ def getPvalStats(pVals):
 
     return (calclulated, pruned, notReached)   
 
-
+C=16
 def HRClustering(D):
     n = len(D)
-    V = range(0,n)
-    while(len(np.unique(V)>1)):
+    V = np.array(range(0,n))
+    # while(len(np.unique(V)>1)):
+    for i in tqdm(range(0,n-1)):
+        
         [A, B, dmax] = findMinPairs(V,D)
+        print "i: {},  ({},{}) dmax:{}".format(i, A,B, dmax)
         if dmax > C:
+            print dmax
+            print "break"
             break
         ind = np.concatenate((np.where(V==A ),np.where(V==B)), axis=1).flatten() 
         V[ind] = A
+    print V
 
 def findMinPairs(V,D):
     v = np.unique(V)
     n = len(v)
     d = -np.ones((n,n))
-    for i in range(1:n):
-        AInd = (np.where(V==v[i] )
-        for j in range(i+1,n+1):
-            BInd = (np.where(V==v[j]))
+    for i in tqdm(range(0,n)):
+        AInd = np.where(V==v[i])[0]
+        for j in range(i+1,n):
+            BInd = np.where(V==v[j])[0]
             d[i,j] = clusterDist(AInd,BInd,D)
+    print d
     dmax = np.min(d[np.where(d>-1)])
     L= np.where(d==dmax)[0][0]
     R= np.where(d==dmax)[1][0]
-    return (v[L], v[R])
+    return (v[L], v[R], dmax)
 
 
 def clusterDist(AInd,BInd,D):
-    
+    pairs = cartesian((AInd, BInd)).T
+    return np.max(D[pairs[0],pairs[1]])
 
 
 if __name__ == "__main__":
