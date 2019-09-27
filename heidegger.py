@@ -1643,7 +1643,7 @@ def evaluate_RBD(var, trtSeq):
         cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
-    #[isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+    [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
     
     anchorPoint = (np.where(trtSeq==1)[0][0]-1)
     if (anchorPoint<0):
@@ -1707,7 +1707,7 @@ def evaluate(var, trtSeq):
         cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
-    #[isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+    [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
     
 
     anchorPoint = (np.where(trtSeq==1)[0][0]-1)
