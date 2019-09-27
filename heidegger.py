@@ -591,6 +591,7 @@ def performMatching_RBD(C, trtNUM):
     # CLUSTER_NUM=22
     model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.3).fit(C)
     labels = model.labels_
+    CLUSTER_NUM = len(np.unique(labels))
     finalPairs = []
     for k in range(0, CLUSTER_NUM):
         pairs= doRandomMatching(k, labels, trtNUM)
