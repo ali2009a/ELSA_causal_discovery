@@ -584,7 +584,9 @@ def doRandomMatching(k, labels, trtNUM):
     else:
         trt = np.random.choice(trt, len(ctrl), replace=False)
 
-    return zip(trt,ctrl)
+    res= zip(trt,ctrl)
+    pairs = [p for p in res]    
+    return pairs
     
 
 def performMatching_RBD(C, trtNUM):
