@@ -68,13 +68,13 @@ def removeMedianValues(df):
         df= df.drop( df[ (df[columnName]==2)].index)
     return df
 
-def report(df, var):
-    for i in [3,4,5]:
-        print "wave",i
-        print "min", df["{}_{}".format(var, i)].min()
-        print "max", df["{}_{}".format(var, i)].max()
-        print "mean", df["{}_{}".format(var, i)].mean()
-        print "std", df["{}_{}".format(var, i)].std()
+# def report(df, var):
+#     for i in [3,4,5]:
+#         print "wave",i
+#         print "min", df["{}_{}".format(var, i)].min()
+#         print "max", df["{}_{}".format(var, i)].max()
+#         print "mean", df["{}_{}".format(var, i)].mean()
+#         print "std", df["{}_{}".format(var, i)].std()
 
 def harmonizeData(df):
     # print allVar
@@ -467,9 +467,9 @@ def getTreatmentGroups(df, indVariable, waveNumber):
     for i in controlIndexes:
         if df.loc[i][varPrevWave]==1 or (df.loc[i][varPrevWave]==np.nan) or (df.loc[i][memIndexChangeVar]==np.nan):
             controlIndexes.remove(i)
-    print "Group size:"
-    print len(controlIndexes)
-    print len(treatmentIndexes)
+    print ("Group size:")
+    print (len(controlIndexes))
+    print (len(treatmentIndexes))
     return [controlIndexes, treatmentIndexes]
 
 
@@ -522,16 +522,16 @@ def run_cmd(cmd, working_directory=None):
     if working_directory!= None:
         try:
             output = subprocess.check_output(cmd,shell=True,cwd=working_directory)
-            print "output:"+output
+            print ("output:"+output)
         except:
-            print "failed:"+cmd
+            print ("failed:"+cmd)
             # pass
     else:
         try:
             output = subprocess.check_output(cmd,shell=True)
             print(output)
         except:
-            print "failed:"+cmd
+            print ("failed:"+cmd)
             # pass
 
 
@@ -591,22 +591,16 @@ def performMatching_RBD(C, trtNUM):
     # CLUSTER_NUM=22
     model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.3).fit(C)
     labels = model.labels_
-    print labels
     finalPairs = []
     for k in range(0, CLUSTER_NUM):
         pairs= doRandomMatching(k, labels, trtNUM)
         finalPairs = finalPairs+ pairs
-    
-    print len(finalPairs) 
-
 
     costs = []
     for pair in finalPairs:
         costs.append(C[pair[0], pair[1]])
-    print costs
     costs = np.array(costs)
     passedPairs = [pair for idx, pair in enumerate(finalPairs) if costs[idx]< 0.01 ]           
-    print len(passedPairs)
     return passedPairs
 
 
@@ -700,7 +694,7 @@ def findWaveVars(inputList):
     pattern = r"[a-zA-Z0-9_]*_1$"
     for var in inputList:
         if re.match(pattern, var):
-            print var 
+            print (var) 
 
 
 def computeLag(df, X,Y):
@@ -742,7 +736,7 @@ def computeLag(df, X,Y):
 
 def computeLagForAllVars(df):
     for var in trtmntVar:
-        print "examining ", var
+        # print "examining ", var
         res= computeLag(df,var, list(targetVar)[0])
 
 
@@ -761,20 +755,20 @@ def f():
     for indVariable in trtmntVar:
     # for indVariable in ["heactb"]:
         s =time.time()
-        print indVariable
+        print (indVariable)
         for waveNumber in [2,3,4,5,6,7]:
         # for waveNumber in [5]:
-            print waveNumber
+            print (waveNumber)
             treatmentGroups = getTreatmentGroups(df,indVariable, waveNumber)
             C= ComputeCostMatrix(df, treatmentGroups, indVariable, waveNumber)
             matchedPairs = performMatching(C)
             targetValues = getTargetValues(df,treatmentGroups, matchedPairs, waveNumber)
 
             pval = computePValue(targetValues[0], targetValues[1])
-            print "pval", pval
+            print ("pval", pval)
             pVals[indVariable].append(pval) 
         elapsedTime = time.time()-s
-        print "processing time:", elapsedTime/60        
+        print ("processing time:", elapsedTime/60)        
 
     return pVals
 
@@ -868,7 +862,7 @@ def computeDistance(seq1, seq2, seq1Label, seq2Label=None, weights=None):
         sumDiff = sumDiff + diff*weights[i]
     avgDiff = sumDiff/np.sum(weights)
     if np.isnan(avgDiff):
-        print "found Nan"
+        print ("found Nan")
     return avgDiff
 
 def measureSimilarity(var, signal, df, nanLabel):
@@ -1006,7 +1000,6 @@ def computeDistanceMatrix(df, nanLabel, trtVariable, outliersIndexT, outliersInd
     C = np.zeros(shape = (len(outliersIndexT), len(outliersIndexC)))
     
     for i in tqdm(range(0,len(outliersIndexT))):
-        print i
         for j in range(0, len(outliersIndexC)):
             distances = []
             trtDist= computeAvgDistance(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, i, j)
@@ -1109,7 +1102,6 @@ def computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distan
         
         totalNum = len(outliersIndexT)+len(outliersIndexC)
         costSum = np.zeros(shape = (totalNum,totalNum))
-        print costSum.shape
         for var in (varSet):
             T = np.zeros(shape = (totalNum, winLen))
             C = np.zeros(shape = (totalNum, winLen))
@@ -1140,7 +1132,6 @@ def computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distan
             weightedDiff  = penalizedDiff * effectiveWeights
             aggregatedCost =np.sum(weightedDiff,axis=2)
             varCost = aggregatedCost / np.sum(effectiveWeights)
-            print varCost.shape
             costSum = costSum + varCost
 
         avgCost= costSum/float(len(varSet))
@@ -1182,7 +1173,7 @@ def heidegger():
 
     for var in trtmntVar:
     #for var in ["heactb"]:
-        print "evaluting {}".format(var)
+        print ("evaluting {}".format(var))
         distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
         distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
         
@@ -1208,7 +1199,6 @@ from numpy import genfromtxt
 def runHyps():
         sigs = genfromtxt('LowH_Hyp.csv', delimiter=',')
         sigs = sigs[1:,:-1]
-        print sigs
         if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
             df = pd.read_pickle(dfPath)
             nanLabel = pd.read_pickle(nanLabelPath)
@@ -1228,8 +1218,8 @@ def runHyps():
                 continue
             weights = (~(trtSeq==2)).astype(int)
             trtSignal = (trtSeq,weights)                
-            print "evaluating:"
-            print trtSignal
+            print ("evaluating:")
+            print (trtSignal)
             distanceInfoT = measureSimilarity(var, trtSignal, df, nanLabel)
             outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
 
@@ -1264,8 +1254,8 @@ def runHyps():
 
 
             [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
-            print "in runHyps"
-            print meanVals
+            print ("in runHyps")
+            print (meanVals)
              
 
             targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var)
@@ -1279,11 +1269,10 @@ def runHyps():
             #     f.flush()
             #     os.fsync(f.fileno())
             #     continue    
-            print meanVals
             meanValsStr = str(meanVals)
-            print "meanValsStr:"
-            print meanValsStr
-            print "pval={0:.5f} , n={1:d}\n".format(pval, len(matchedPairs))
+            # print "meanValsStr:"
+            # print meanValsStr
+            print ("pval={0:.5f} , n={1:d}\n".format(pval, len(matchedPairs)))
             f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
             f.flush()
             os.fsync(f.fileno())
@@ -1298,7 +1287,7 @@ def fixPairsOffset(matchedPairs, trtNUM):
 
 
 def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist):
-    print anchorDist  
+    print (anchorDist)  
     memtotT = []
     memtotC = []
     memtotT_prev = []
@@ -1337,7 +1326,7 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
     
     np.array(memtotT_prev).tofile("memIndexValues_base_Treatment_{}.csv".format(var), sep=',')
     np.array(memtotC_prev).tofile("memIndexValues_base_Control_{}.csv".format(var), sep=',')
-    print "memtotC:{}, memtotT:{}, memtotC_prev:{}, memtotT_prev:{}".format(np.mean(memtotC), np.mean(memtotT), np.mean(memtotC_prev), np.mean(memtotT_prev))
+    print ("memtotC:{}, memtotT:{}, memtotC_prev:{}, memtotT_prev:{}".format(np.mean(memtotC), np.mean(memtotT), np.mean(memtotC_prev), np.mean(memtotT_prev)))
     return [memtotC, memtotT, memtotC_prev, memtotT_prev]   
 
 
@@ -1388,11 +1377,11 @@ def isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, d
             resPair = haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, len(trtSeq)-(i+1))
             resValue = resPair[0]
             meanVal = resPair[1]
-            print "meanVal:{}".format(meanVal)          
+            # print ("meanVal:{}".format(meanVal) )         
             isBiased = isBiased or not resValue
             meanValList.append(round(meanVal,2))
-    print "meanValList"
-    print meanValList
+    # print "meanValList"
+    # print meanValList
     return [isBiased, meanValList]
 
 
@@ -1415,7 +1404,7 @@ def haveSameDCDistrubtion(df, matchedPairs, outliersIndexT, outliersIndexC,dista
         ctrlVal.append( df.loc[index, col])
 
 
-    print "Treatment Mean:{}".format(np.mean(trtVal))
+    print ("Treatment Mean:{}".format(np.mean(trtVal)))
     # pval = computePValue(ctrlVal, trtVal)
     # print pval
     return [np.mean(trtVal) < 0.9 and np.mean(trtVal) >0.1, np.mean(trtVal)]
@@ -1438,7 +1427,7 @@ def extractSeq(df, nanLabel, var, index, w, isTargetVar, length):
 
 def evaluateLValues(distances, df, nanLabel):
     for pair in distances:
-        print "\n"
+        print ("\n")
         # distanceInfoT = measureSimilarity(var, getTreatmentSignal(), df, nanLabel)
         # distanceInfoC = measureSimilarity(var, getControlSignal(), df, nanLabel)
         
@@ -1449,8 +1438,8 @@ def evaluateLValues(distances, df, nanLabel):
         outliersIndexT, LT = tuneL(DT)
         outliersIndexC, LC = tuneL(DC)
 
-        print "Control:{}".format(len(outliersIndexC))
-        print "Treatment:{}".format(len(outliersIndexT))
+        print ("Control:{}".format(len(outliersIndexC)))
+        print ("Treatment:{}".format(len(outliersIndexT)))
 
 def tuneL(Data, nanLabel, distanceInfo, var, string):
     isKnown = []
@@ -1473,7 +1462,7 @@ def tuneL(Data, nanLabel, distanceInfo, var, string):
     MADVal = MAD(Data[np.where(isKnown)])
     if MADVal==0:
        MADVal=0.01
-    print "MAD:{}".format(MADVal)
+    print ("MAD:{}".format(MADVal))
     #print "1:{}".format(L)
     while (True):
         Outliers = (Data < (Median - L*MADVal))
@@ -1500,8 +1489,8 @@ def tuneL(Data, nanLabel, distanceInfo, var, string):
         outliersIndex = outliersIndex[idx]
         #outliersIndex = np.random.choice(outliersIndex, UPPER_LIMIT, replace=False)
     passedIndexes = [index for  index in outliersIndex if Data[index]< -2 ]
-    print "Size before pruning:{}".format(len(outliersIndex))
-    print "Final size after pruning:{}".format(len(passedIndexes))
+    print ("Size before pruning:{}".format(len(outliersIndex)))
+    print ("Final size after pruning:{}".format(len(passedIndexes)))
     #print Data[outliersIndex]
     return (passedIndexes, L)
 
@@ -1555,12 +1544,10 @@ def fetchLEHyps(path):
     LEHyps = set()
     for i in range(len(hyps)):
         seq = hyps[i,:].astype(int)
-        print seq
         if (seq==1).any():
             strSeq= str(seq)
             pattern = re.sub("[^0-9]", "",strSeq)
             LEHyps.add(pattern)
-    print LEHyps
     return LEHyps
 
 def splitStr(word): 
@@ -1758,7 +1745,7 @@ def search(var, s, LowE_Path):
     pVals={}
     prev = {}
     U = fetchLEHyps(LowE_Path)
-    print U
+    print (U)
     for hypId in U:
         pVals[hypId] = 2
         prev[hypId] = "nan"
@@ -1768,27 +1755,21 @@ def search(var, s, LowE_Path):
     bestSoFarVal =  pVals[s]
     bestSoFarID = s
 
-    print pVals
-
-    print bestSoFarID
-    print bestSoFarVal
-
-
     counter= 0
     while(len(U)>0):
-        print "it : {}".format(counter)
+        print ("it : {}".format(counter))
         minID, minVal=findMin(U, pVals)
         
         
         if (minVal >1):
             break
-        print "min ID:{}, min value:{}, bestSoFarVal:{}".format(minID, minVal, bestSoFarVal)
+        print ("min ID:{}, min value:{}, bestSoFarVal:{}".format(minID, minVal, bestSoFarVal))
         if (minVal<=bestSoFarVal):
-            print "best so far changed"
+            print ("best so far changed")
             bestSoFarID= minID
             bestSoFarVal = minVal
         else:
-            print "goint to break"
+            print ("goint to break")
             break
 
         for v in getNeighbours(minID):
@@ -1798,10 +1779,10 @@ def search(var, s, LowE_Path):
         U.remove(minID)
         counter=counter+1
 
-    print bestSoFarID
-    print bestSoFarVal
-    print pVals
-    print prev
+    print (bestSoFarID)
+    print (bestSoFarVal)
+    print (pVals)
+    print (prev)
 
 
     printPath(bestSoFarID, prev)
@@ -1815,13 +1796,13 @@ def search(var, s, LowE_Path):
 
 
 def printPath(node, prev):
-    print "prev[node]:",prev[node]
+    print ("prev[node]:",prev[node])
     if ( prev[node]=="nan"):
-        print node,
+        print (node)
     else:
         printPath(prev[node], prev)
-        print "->",
-        print node,
+        print ("->")
+        print (node)
 
 def getPvalStats(pVals):
     calclulated=0
@@ -1845,14 +1826,14 @@ def HRClustering(D):
     for i in tqdm(range(0,n-1)):
         
         [A, B, dmax] = findMinPairs(V,D)
-        print "i: {},  ({},{}) dmax:{}".format(i, A,B, dmax)
+        print ("i: {},  ({},{}) dmax:{}".format(i, A,B, dmax))
         if dmax > C:
-            print dmax
-            print "break"
+            print (dmax)
+            print ("break")
             break
         ind = np.concatenate((np.where(V==A ),np.where(V==B)), axis=1).flatten() 
         V[ind] = A
-    print V
+    print (V)
 
 def findMinPairs(V,D):
     v = np.unique(V)
@@ -1863,7 +1844,7 @@ def findMinPairs(V,D):
         for j in range(i+1,n):
             BInd = np.where(V==v[j])[0]
             d[i,j] = clusterDist(AInd,BInd,D)
-    print d
+    print (d)
     dmax = np.min(d[np.where(d>-1)])
     L= np.where(d==dmax)[0][0]
     R= np.where(d==dmax)[1][0]
@@ -1876,6 +1857,6 @@ def clusterDist(AInd,BInd,D):
 
 
 if __name__ == "__main__":
-    print "a"
+    print ("a")
 
 
