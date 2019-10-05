@@ -926,9 +926,9 @@ def measureSimilarity2(var, signal, df, nanLabel):
     isNan = np.logical_or(SL, seqLabel)
     penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)
     penalizedDiff =  np.isnan(penalizedDiff)*np.ones(penalizedDiff.shape, dtype=int) + (1 - np.isnan(penalizedDiff))*penalizedDiff
-    weightedDiff  = penalizedDiff * weights  # to get the right most weights 
+    weightedDiff  = penalizedDiff * weights 
     costSum =np.sum(diff,axis=2)
-    varCost = costSum / np.sum(getMatchingWeights())
+    varCost = costSum / np.sum(np.ones(winLen))  #replace divisor by winLen
     distanceValues[:,2] = varCost.reshape(len(distanceValues))
     return distanceValues
 
@@ -1797,6 +1797,97 @@ def search(var, s, LowE_Path):
         file.write(pickle.dumps(prev)) 
 
     return (pVals, prev, bestSoFarID)
+
+
+
+
+
+from numpy.random import choice
+def findNext(U, pVals):
+    minVal = 2
+    minID = -1
+    for hypID in U:
+        if(pVals[hypID]<minVal):
+            minVal = pVals[hypID]
+            minID = hypID
+
+    candidates = []
+    values = []
+    for nodeId in U:
+        if 0<=pVals[nodeId]<=1:
+            candidates.append(nodeId)
+            values.append(pVals[nodeId])
+    values  = np.array(values)
+    values = values/ np.sum(values)
+    nextID = choice(candidates, 1, p=values)[0]        
+    return (nextID, pVals[nextID]) 
+
+#random walk search
+def search_rw(var, s, LowE_Path):
+    # var="heactb"
+    # s = "212"
+    pVals={}
+    prev = {}
+    U = fetchLEHyps(LowE_Path)
+    print (U)
+    for hypId in U:
+        pVals[hypId] = 2
+        prev[hypId] = "nan"
+
+    pVals[s]=evaluate(var, s)
+    
+    bestSoFarVal =  pVals[s]
+    bestSoFarID = s
+    for v in getNeighbours(s):
+        if (v in U):
+            pVals[v] = evaluate(var, v)
+    U.remove(minID)
+    prevNode = s
+
+    EARLY_STOP_THRESHOLD=10
+    counter= 0
+    while(len(U)>0):
+        print ("it : {}".format(counter))
+        minID, minVal = findNext(U, pVals)
+        prev[minID] = prevNode
+        
+        if (minVal==None):
+            break
+
+        print ("min ID:{}, min value:{}, bestSoFarVal:{}".format(minID, minVal, bestSoFarVal))
+        if (minVal<=bestSoFarVal):
+            print ("best so far changed")
+            bestSoFarID= minID
+            bestSoFarVal = minVal
+            local_minima_counter=0
+        else:
+            local_minima_counter = local_minima_counter+1
+            if (local_minima_counter > EARLY_STOP_THRESHOLD)
+                print ("goint to break")
+            break
+
+        for v in getNeighbours(minID):
+            if (v in U):
+                pVals[v] = evaluate(var, v)
+        U.remove(minID)
+        prevNode = minID
+        counter=counter+1
+
+    print (bestSoFarID)
+    print (bestSoFarVal)
+    print (pVals)
+    print (prev)
+
+
+    printPath(bestSoFarID, prev)
+    with open('pVals.txt', 'w') as file:
+        file.write(pickle.dumps(pVals)) 
+    
+    with open('prev.txt', 'w') as file:
+        file.write(pickle.dumps(prev)) 
+
+    return (pVals, prev, bestSoFarID)
+
 
 
 def printPath(node, prev):
