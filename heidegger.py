@@ -898,26 +898,13 @@ def measureSimilarity(var, signal, df, nanLabel):
     return distanceValues
 
 
-def measureSimilarity2(var, signal, df, nanLabel):
-    [samplesNum, columnsNum] = df.shape
-    distanceValues = np.empty((samplesNum*WAVE_NUM,3))
+def measureSimilarity_efficient(var, signal, df, nanLabel, place_holder):
+    distanceValues, S, SL = place_holder
     distanceValues[:] = np.nan
     winLen = len(signal[0])
     signalSeq= signal[0]
     weights = signal[1]
     seqLabel = np.zeros((winLen,), dtype=int)
-    
-    S = np.zeros(shape = (samplesNum*WAVE_NUM, winLen))
-    SL = np.zeros(shape = (samplesNum*WAVE_NUM, winLen))
-    counter= 0
-    for index in tqdm(range(0, len(df))):
-        for w in range(8,15):
-            seqs= extractSeq(df, nanLabel, var, index, w, False, length = winLen)
-            S[counter,:]= seqs[0]
-            SL[counter,:]= seqs[1]
-            distanceValues[counter,:]=  [int(index), int(w), np.nan]
-            counter = counter+1
-
     alpha =0.3
     S = S.reshape(S.shape[0], 1, S.shape[1]) 
     SL = SL.reshape(SL.shape[0], 1, SL.shape[1])
@@ -1667,6 +1654,68 @@ def evaluate_RBD(var, trtSeq):
     return pval
 
 
+def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
+    if trtSeq in cache:
+        return cache[trtSeq]
+
+    trtSeq = id2array(trtSeq)
+    weights = (~(trtSeq==2)).astype(int)
+    trtSignal = (trtSeq,weights)                
+    distanceInfoT = measureSimilarity_efficient(var, trtSignal, df, nanLabel, place_holder)
+    outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
+
+    anchorPoint = (np.where(trtSeq!=2)[0][0])
+    anchorDist = len(trtSeq)- anchorPoint
+    
+    ctrlSeq = np.zeros(len(trtSeq))
+    ctrlWeights = np.ones(len(trtSeq))
+    ctrlWeights[:(len(trtSeq)-anchorDist)]=0
+    ctrlSignal = (ctrlSeq, ctrlWeights)
+
+
+
+    distanceInfoC = measureSimilarity_efficient(var, ctrlSignal, df, nanLabel, place_holder)
+    outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")
+
+    if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
+        with open("searchResult.txt","a") as f:
+            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
+        cache[array2id(trtSeq)] = np.nan
+        return np.nan
+
+    #C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
+    C = computeDistanceMatrix2_RBD(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
+    matchedPairs = performMatching_RBD(C, len(outliersIndexT))
+    if (len(matchedPairs)<4):
+        with open("searchResult.txt", "a") as f:
+            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
+        cache[array2id(trtSeq)] = np.nan
+        return np.nan             
+
+    [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+    
+    anchorPoint = (np.where(trtSeq==1)[0][0]-1)
+    if (anchorPoint<0):
+        anchorPoint=0
+    anchorDist = len(trtSeq)- anchorPoint
+
+    matchedPairs = fixPairsOffset(matchedPairs, len(outliersIndexT))
+    targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist)
+    pval = computePValue(targetValues[0], targetValues[1])
+    with open("searchResult.txt","a") as f:
+        meanValsStr = str(meanVals)
+        f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
+    
+    
+    # if (isBiased):
+    #     cache[array2id(trtSeq)]= np.nan
+    #     return np.nan
+    # else:
+    cache[array2id(trtSeq)]= pval
+    return pval
+
+
+
 
 def evaluate(var, trtSeq):
     if trtSeq in cache:
@@ -1871,6 +1920,163 @@ def search_rw(var, s, LowE_Path):
                 pVals[v] = evaluate(var, v)
         U.remove(minID)
         prevNode = minID
+        counter=counter+1
+
+    print (bestSoFarID)
+    print (bestSoFarVal)
+    print (pVals)
+    print (prev)
+
+
+    printPath(bestSoFarID, prev)
+    with open('pVals.txt', 'w') as file:
+        file.write(pickle.dumps(pVals)) 
+    
+    with open('prev.txt', 'w') as file:
+        file.write(pickle.dumps(prev)) 
+
+    return (pVals, prev, bestSoFarID)
+
+
+
+def get_place_holder(var, df, nanLabel):
+    [samplesNum, columnsNum] = df.shape
+    distanceValues = np.empty((samplesNum*WAVE_NUM,3))
+    distanceValues[:] = np.nan
+    winLen = len(signal[0])
+    seqLabel = np.zeros((winLen,), dtype=int)
+    
+    S = np.zeros(shape = (samplesNum*WAVE_NUM, winLen))
+    SL = np.zeros(shape = (samplesNum*WAVE_NUM, winLen))
+    counter= 0
+    for index in tqdm(range(0, len(df))):
+        for w in range(8,15):
+            seqs= extractSeq(df, nanLabel, var, index, w, False, length = winLen)
+            S[counter,:]= seqs[0]
+            SL[counter,:]= seqs[1]
+            distanceValues[counter,:]=  [int(index), int(w), np.nan]
+            counter = counter+1
+    return [distanceValues, S, SL]
+
+#random walk search
+def search_rw_efficient(var, s, LowE_Path):
+    if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
+        df = pd.read_pickle(dfPath)
+        nanLabel = pd.read_pickle(nanLabelPath)
+    else:
+        df = readData()
+        df, nanLabel = preprocess(df)
+
+
+    place_holder = get_place_holder(var, df, nanLabel)
+
+    pVals={}
+    prev = {}
+    U = fetchLEHyps(LowE_Path)
+    print (U)
+    for hypId in U:
+        pVals[hypId] = 2
+        prev[hypId] = "nan"
+
+    pVals[s]=evaluate_RBD_efficient(var, s, df, nanLabel, place_holder)
+    
+    bestSoFarVal =  pVals[s]
+    bestSoFarID = s
+    for v in getNeighbours(s):
+        if (v in U):
+            pVals[v] = evaluate_RBD_efficient(var, v, df, nanLabel, place_holder)
+    U.remove(minID)
+    prevNode = s
+
+    EARLY_STOP_THRESHOLD=10
+    counter= 0
+    while(len(U)>0):
+        print ("it : {}".format(counter))
+        minID, minVal = findNext(U, pVals)
+        prev[minID] = prevNode
+        
+        if (minVal==None):
+            break
+
+        print ("min ID:{}, min value:{}, bestSoFarVal:{}".format(minID, minVal, bestSoFarVal))
+        if (minVal<=bestSoFarVal):
+            print ("best so far changed")
+            bestSoFarID= minID
+            bestSoFarVal = minVal
+            local_minima_counter=0
+        else:
+            local_minima_counter = local_minima_counter+1
+            if (local_minima_counter > EARLY_STOP_THRESHOLD)
+                print ("goint to break")
+            break
+
+        for v in getNeighbours(minID):
+            if (v in U):
+                pVals[v] = evaluate_RBD_efficient(var, v, df, nanLabel, place_holder)
+        U.remove(minID)
+        prevNode = minID
+        counter=counter+1
+
+    print (bestSoFarID)
+    print (bestSoFarVal)
+    print (pVals)
+    print (prev)
+
+
+    printPath(bestSoFarID, prev)
+    with open('pVals.txt', 'w') as file:
+        file.write(pickle.dumps(pVals)) 
+    
+    with open('prev.txt', 'w') as file:
+        file.write(pickle.dumps(prev)) 
+
+    return (pVals, prev, bestSoFarID)
+
+
+def search_efficient(var, s, LowE_Path):
+    if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
+        df = pd.read_pickle(dfPath)
+        nanLabel = pd.read_pickle(nanLabelPath)
+    else:
+        df = readData()
+        df, nanLabel = preprocess(df)
+    place_holder = get_place_holder(var, df, nanLabel)
+        
+    pVals={}
+    prev = {}
+    U = fetchLEHyps(LowE_Path)
+    print (U)
+    for hypId in U:
+        pVals[hypId] = 2
+        prev[hypId] = "nan"
+
+    pVals[s]=evaluate_RBD_efficient(var, s, df, nanLabel, place_holder)
+    
+    bestSoFarVal =  pVals[s]
+    bestSoFarID = s
+
+    counter= 0
+    while(len(U)>0):
+        print ("it : {}".format(counter))
+        minID, minVal=findMin(U, pVals)
+        
+        
+        if (minVal >1):
+            break
+        print ("min ID:{}, min value:{}, bestSoFarVal:{}".format(minID, minVal, bestSoFarVal))
+        if (minVal<=bestSoFarVal):
+            print ("best so far changed")
+            bestSoFarID= minID
+            bestSoFarVal = minVal
+        else:
+            print ("goint to break")
+            break
+
+        for v in getNeighbours(minID):
+            if (v in U):
+                pVals[v] = evaluate_RBD_efficient(var, v, df, nanLabel, place_holder)
+                prev[v] = minID
+        U.remove(minID)
         counter=counter+1
 
     print (bestSoFarID)
