@@ -1911,7 +1911,7 @@ def search_rw(var, s, LowE_Path):
             local_minima_counter=0
         else:
             local_minima_counter = local_minima_counter+1
-            if (local_minima_counter > EARLY_STOP_THRESHOLD)
+            if (local_minima_counter > EARLY_STOP_THRESHOLD):
                 print ("goint to break")
             break
 
@@ -1939,11 +1939,11 @@ def search_rw(var, s, LowE_Path):
 
 
 
-def get_place_holder(var, df, nanLabel):
+def get_place_holder(var, df, nanLabel, signalLength):
     [samplesNum, columnsNum] = df.shape
     distanceValues = np.empty((samplesNum*WAVE_NUM,3))
     distanceValues[:] = np.nan
-    winLen = len(signal[0])
+    winLen = signalLength
     seqLabel = np.zeros((winLen,), dtype=int)
     
     S = np.zeros(shape = (samplesNum*WAVE_NUM, winLen))
@@ -1968,7 +1968,7 @@ def search_rw_efficient(var, s, LowE_Path):
         df, nanLabel = preprocess(df)
 
 
-    place_holder = get_place_holder(var, df, nanLabel)
+    
 
     pVals={}
     prev = {}
@@ -1977,6 +1977,10 @@ def search_rw_efficient(var, s, LowE_Path):
     for hypId in U:
         pVals[hypId] = 2
         prev[hypId] = "nan"
+
+
+    signalLength = len(next(iter(U)))
+    place_holder = get_place_holder(var, df, nanLabel, signalLength)
 
     pVals[s]=evaluate_RBD_efficient(var, s, df, nanLabel, place_holder)
     
@@ -2006,7 +2010,7 @@ def search_rw_efficient(var, s, LowE_Path):
             local_minima_counter=0
         else:
             local_minima_counter = local_minima_counter+1
-            if (local_minima_counter > EARLY_STOP_THRESHOLD)
+            if (local_minima_counter > EARLY_STOP_THRESHOLD):
                 print ("goint to break")
             break
 
@@ -2040,7 +2044,6 @@ def search_efficient(var, s, LowE_Path):
     else:
         df = readData()
         df, nanLabel = preprocess(df)
-    place_holder = get_place_holder(var, df, nanLabel)
         
     pVals={}
     prev = {}
@@ -2049,6 +2052,9 @@ def search_efficient(var, s, LowE_Path):
     for hypId in U:
         pVals[hypId] = 2
         prev[hypId] = "nan"
+
+    signalLength = len(next(iter(U)))
+    place_holder = get_place_holder(var, df, nanLabel, signalLength)
 
     pVals[s]=evaluate_RBD_efficient(var, s, df, nanLabel, place_holder)
     
