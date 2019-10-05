@@ -591,7 +591,7 @@ def doRandomMatching(k, labels, trtNUM):
 
 def performMatching_RBD(C, trtNUM):
     # CLUSTER_NUM=22
-    model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.3).fit(C)
+    model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.01).fit(C)
     labels = model.labels_
     CLUSTER_NUM = len(np.unique(labels))
     finalPairs = []
@@ -1550,6 +1550,7 @@ def fetchLEHyps(path):
         if (seq==1).any():
             strSeq= str(seq)
             pattern = re.sub("[^0-9]", "",strSeq)
+            pattern.replace("0","2")
             LEHyps.add(pattern)
     return LEHyps
 
@@ -1568,7 +1569,7 @@ def id2array(id):
 def getNeighbours(h):
     neighbours= set()
     for i in range(0,len(h)):
-        for j in [0,1,2]:
+        for j in [1,2]:
             if int(h[i])!= j:
                 t= id2array(h)
                 t[i]=j
