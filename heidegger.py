@@ -899,8 +899,8 @@ def measureSimilarity(var, signal, df, nanLabel):
 
 
 def measureSimilarity_efficient(var, signal, df, nanLabel, place_holder):
-    distanceValues, S, SL = place_holder
-    distanceValues[:] = np.nan
+    distanceValues, S, SL = [place_holder[0].copy(),place_holder[1].copy(), place_holder[2].copy()] 
+    #distanceValues[:] = np.nan
     winLen = len(signal[0])
     signalSeq= signal[0]
     weights = signal[1]
@@ -914,9 +914,13 @@ def measureSimilarity_efficient(var, signal, df, nanLabel, place_holder):
     penalizedDiff = (1-isNan)*diff + (isNan)*((1-2*alpha)*diff+alpha)
     penalizedDiff =  np.isnan(penalizedDiff)*np.ones(penalizedDiff.shape, dtype=int) + (1 - np.isnan(penalizedDiff))*penalizedDiff
     weightedDiff  = penalizedDiff * weights 
-    costSum =np.sum(diff,axis=2)
-    varCost = costSum / np.sum(np.ones(winLen))  #replace divisor by winLen
-    distanceValues[:,2] = varCost.reshape(len(distanceValues))
+    costSum =np.sum(weightedDiff,axis=2)
+    varCost = costSum / np.sum(weights)  #replace divisor by winLen
+    D = varCost.reshape(len(distanceValues))
+    #D = np.nan_to_num(D, nan=1) 
+    where_are_NaNs = np.isnan(D)
+    D[where_are_NaNs] = 1
+    distanceValues[:,2]= D
     return distanceValues
 
 
@@ -1956,6 +1960,7 @@ def get_place_holder(var, df, nanLabel, signalLength):
             SL[counter,:]= seqs[1]
             distanceValues[counter,:]=  [int(index), int(w), np.nan]
             counter = counter+1
+    print (distanceValues[0,:])
     return [distanceValues, S, SL]
 
 #random walk search
