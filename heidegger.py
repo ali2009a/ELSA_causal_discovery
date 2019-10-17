@@ -1696,7 +1696,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
         cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
-    [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, trtSeq)
+
     
     anchorPoint = (np.where(trtSeq==1)[0][0]-1)
     if (anchorPoint<0):
@@ -1704,6 +1704,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     anchorDist = len(trtSeq)- anchorPoint
 
     matchedPairs = fixPairsOffset(matchedPairs, len(outliersIndexT))
+    [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, var, trtSeq)
     targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist)
     pval = computePValue(targetValues[0], targetValues[1])
     with open("searchResult.txt","a") as f:
@@ -2117,7 +2118,7 @@ def printPath(node, prev):
         print (node)
 
 
-def runHyps_efficient(var, s, LowE_Path):
+def runHyps_efficient(var, LowE_Path):
     if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
         df = pd.read_pickle(dfPath)
         nanLabel = pd.read_pickle(nanLabelPath)
