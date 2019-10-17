@@ -2033,10 +2033,10 @@ def search_rw_efficient(var, s, LowE_Path):
 
 
     printPath(bestSoFarID, prev)
-    with open('pVals.txt', 'w') as file:
+    with open('pVals.txt', 'wb') as file:
         file.write(pickle.dumps(pVals)) 
     
-    with open('prev.txt', 'w') as file:
+    with open('prev.txt', 'wb') as file:
         file.write(pickle.dumps(prev)) 
 
     return (pVals, prev, bestSoFarID)
