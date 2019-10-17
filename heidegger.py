@@ -2097,10 +2097,10 @@ def search_efficient(var, s, LowE_Path):
 
 
     printPath(bestSoFarID, prev)
-    with open('pVals.txt', 'w') as file:
+    with open('pVals.txt', 'wb') as file:
         file.write(pickle.dumps(pVals)) 
     
-    with open('prev.txt', 'w') as file:
+    with open('prev.txt', 'wb') as file:
         file.write(pickle.dumps(prev)) 
 
     return (pVals, prev, bestSoFarID)
@@ -2115,6 +2115,27 @@ def printPath(node, prev):
         printPath(prev[node], prev)
         print ("->")
         print (node)
+
+
+def runHyps_efficient(var, s, LowE_Path):
+    if (os.path.isfile(dfPath) and os.path.isfile(nanLabelPath)):
+        df = pd.read_pickle(dfPath)
+        nanLabel = pd.read_pickle(nanLabelPath)
+    else:
+        df = readData()
+        df, nanLabel = preprocess(df)
+    pVals = {}
+    U = fetchLEHyps(LowE_Path)
+    signalLength = len(next(iter(U)))
+    place_holder = get_place_holder(var, df, nanLabel, signalLength)
+    for hypID in U:
+        pVals[s] = evaluate_RBD_efficient(var, hypID, df, nanLabel, place_holder)
+
+
+
+
+
+
 
 def getPvalStats(pVals):
     calclulated=0
