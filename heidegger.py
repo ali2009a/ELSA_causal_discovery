@@ -2130,7 +2130,7 @@ def runHyps_efficient(var, LowE_Path):
     signalLength = len(next(iter(U)))
     place_holder = get_place_holder(var, df, nanLabel, signalLength)
     for hypID in U:
-        pVals[s] = evaluate_RBD_efficient(var, hypID, df, nanLabel, place_holder)
+        evaluate_RBD_efficient(var, hypID, df, nanLabel, place_holder)
 
 
 
