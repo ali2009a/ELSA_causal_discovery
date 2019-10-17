@@ -1541,8 +1541,8 @@ def fetchLEHyps(path):
         if (seq==1).any():
             strSeq= str(seq)
             pattern = re.sub("[^0-9]", "",strSeq)
-            pattern.replace("0","2")
-            LEHyps.add(pattern)
+            fixed = pattern.replace("0","2")
+            LEHyps.add(fixed)
     return LEHyps
 
 def splitStr(word): 
