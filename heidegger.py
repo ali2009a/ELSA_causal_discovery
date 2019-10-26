@@ -1087,8 +1087,12 @@ def computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distan
         
         if (isTargetVar):
             extractLen = anchorDist
-            winLen= 1
-            effectiveWeights = np.ones(winLen)
+            #winLen= 1
+            winLen= extractLen-1
+            #effectiveWeights = np.ones(winLen)
+            #effectiveWeights = np.geomspace(1, (0.5)**(winLen-1) , num=winLen)
+            effectiveWeights = list(np.arange(100,-1,-100/(winLen)))[:winLen]
+            #effectiveWeights = np.ones(winLen)
         else:
             extractLen = anchorDist2 
             winLen = extractLen
