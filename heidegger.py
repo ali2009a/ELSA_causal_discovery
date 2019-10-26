@@ -2137,6 +2137,11 @@ def runHyps_efficient(var, LowE_Path):
         evaluate_RBD_efficient(var, hypID, df, nanLabel, place_holder)
 
 
+def runHypsForAllVars(lowE_Path):
+   for var in trtmntVar:
+      runHyps_efficient(var, LowE_Path)
+
+
 
 
 
