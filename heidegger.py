@@ -1087,8 +1087,12 @@ def computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distan
         
         if (isTargetVar):
             extractLen = anchorDist
-            winLen= 1
-            effectiveWeights = np.ones(winLen)
+            #winLen= 1
+            winLen= extractLen-1
+            #effectiveWeights = np.ones(winLen)
+            #effectiveWeights = np.geomspace(1, (0.5)**(winLen-1) , num=winLen)
+            effectiveWeights = list(np.arange(100,-1,-100/(winLen)))[:winLen]
+            #effectiveWeights = np.ones(winLen)
         else:
             extractLen = anchorDist2 
             winLen = extractLen
@@ -1537,6 +1541,7 @@ def fetchLEHyps(path):
     hyps = hyps[1:,:-1] 
     LEHyps = set()
     for i in range(len(hyps)):
+    #for i in range(3):
         seq = hyps[i,:].astype(int)
         if (seq==1).any():
             strSeq= str(seq)
@@ -1659,8 +1664,8 @@ def evaluate_RBD(var, trtSeq):
 
 
 def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
-    if trtSeq in cache:
-        return cache[trtSeq]
+    #if trtSeq in cache:
+    #    return cache[trtSeq]
 
     trtSeq = id2array(trtSeq)
     weights = (~(trtSeq==2)).astype(int)
@@ -2127,10 +2132,19 @@ def runHyps_efficient(var, LowE_Path):
         df, nanLabel = preprocess(df)
     pVals = {}
     U = fetchLEHyps(LowE_Path)
+    print ("len(U):{}".format(len(U)))
     signalLength = len(next(iter(U)))
     place_holder = get_place_holder(var, df, nanLabel, signalLength)
+    print("evaluating hyps:")
     for hypID in U:
-        pVals[s] = evaluate_RBD_efficient(var, hypID, df, nanLabel, place_holder)
+        print ("evaluating hyp:{}".format(hypID))
+        evaluate_RBD_efficient(var, hypID, df, nanLabel, place_holder)
+
+
+def runHypsForAllVars(lowE_Path):
+   for var in trtmntVar:
+      print ("var: {}".format(var))
+      runHyps_efficient(var, lowE_Path)
 
 
 
