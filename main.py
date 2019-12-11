@@ -657,7 +657,23 @@ def getTargetValues(df, treatmentGroups, indexes, waveNumber):
 
 
 
+def computeDropouts(df, var):
+	v1 = np.isnan(df["{}_1".format(var)])
+	v2 = np.logical_and(v1, (np.isnan(df["{}_1".format(var)])))
+	# v3 = np.logical_and(v2, np.isnan(df["memIndex_3"]))
+	v3= np.isnan(df["{}_2".format(var)])
+	v4 = np.logical_and(v3, np.isnan(df["{}_3".format(var)]))
+	v5 = np.logical_and(v4, np.isnan(df["{}_4".format(var)]))
+	v6 = np.logical_and(v5, np.isnan(df["{}_5".format(var)]))
+	v7 = np.logical_and(v6, np.isnan(df["{}_6".format(var)]))
 
+	print (len(np.where(v1==True)[0]))
+	print (len(np.where(v2==True)[0]))
+	print (len(np.where(v3==True)[0]))
+	print (len(np.where(v4==True)[0]))
+	print (len(np.where(v5==True)[0]))
+	print (len(np.where(v6==True)[0]))
+	print (len(np.where(v7==True)[0]))
 
 
 def computePValue(X,Y):
@@ -787,6 +803,9 @@ def computeLagForAllVars(df):
 		res= computeLag(df,var, list(targetVar)[0])
 
 dfPath="ELSA1.pkl"
+
+
+
 
 def f():
 	# start_time = time.time()
@@ -1198,11 +1217,6 @@ def getFeatureImportance(df, indVariable):
 			mean = np.mean(S2_original[np.where(L==label), i])
 			print "\tL:{} - Mean: {}".format(label, mean)
 				
-
-
-
-
-
 
 if __name__ == "__main__":
 	print "a"
