@@ -19,7 +19,7 @@ nanLabelPath= "nanLabel.pkl"
 import pickle
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.utils.extmath import cartesian
-
+import json
 
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
@@ -560,7 +560,7 @@ def performMatching(C):
                 costs.append(C[L,R])
 
     costs = np.array(costs)
-    passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]< 0.01 ]           
+    passedPairs = [pair for idx, pair in enumerate(indexes) if costs[idx]< 0.1 ]
     return passedPairs
 
 
@@ -591,7 +591,7 @@ def doRandomMatching(k, labels, trtNUM):
 
 def performMatching_RBD(C, trtNUM):
     # CLUSTER_NUM=22
-    model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.01).fit(C)
+    model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.1).fit(C)
     labels = model.labels_
     CLUSTER_NUM = len(np.unique(labels))
     finalPairs = []
@@ -603,10 +603,26 @@ def performMatching_RBD(C, trtNUM):
     for pair in finalPairs:
         costs.append(C[pair[0], pair[1]])
     costs = np.array(costs)
-    passedPairs = [pair for idx, pair in enumerate(finalPairs) if costs[idx]< 0.01 ]           
-    return passedPairs
+    # passedPairs = [pair for idx, pair in enumerate(finalPairs) if costs[idx]< 0.1 ]
+    return finalPairs
 
 
+def performMatching_RBD_test(C, trtNUM):
+    # CLUSTER_NUM=22
+    model = AgglomerativeClustering(affinity='precomputed', n_clusters=None, linkage='complete', distance_threshold=0.1).fit(C)
+    labels = model.labels_
+    CLUSTER_NUM = len(np.unique(labels))
+    finalPairs = []
+    for k in range(0, CLUSTER_NUM):
+        pairs= doRandomMatching(k, labels, trtNUM)
+        finalPairs = finalPairs+ pairs
+
+    costs = []
+    for pair in finalPairs:
+        costs.append(C[pair[0], pair[1]])
+    costs = np.array(costs)
+    # passedPairs = [pair for idx, pair in enumerate(finalPairs) if costs[idx]< 0.1 ]
+    return labels
 
 def getTargetValues(df, treatmentGroups, indexes, waveNumber):
     memTotChangeVar = "memIndexChange_{}".format(waveNumber)
@@ -1064,7 +1080,7 @@ def computeDistanceMatrix2(df, nanLabel, trtVariable, outliersIndexT, outliersIn
     trtDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, trtSeq)
     confDist= computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, trtSeq)
     targetDist=computeAvgDistance2(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, trtSeq)
-    C= (trtDist + confDist + 198*targetDist)/200
+    C= (trtDist + confDist + 2*targetDist)/4
     np.savetxt('X_Dist.csv', trtDist, delimiter=',')
     np.savetxt('Z_Dist.csv', confDist, delimiter=',')
     np.savetxt('Y_Dist.csv', targetDist, delimiter=',')
@@ -1140,7 +1156,7 @@ def computeDistanceMatrix2_RBD(df, nanLabel, trtVariable, outliersIndexT, outlie
     trtDist= computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtmntVar-set([trtVariable]), False, trtSeq)
     confDist= computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, trtSeq)
     targetDist=computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, trtSeq)
-    C= (trtDist + confDist + 198*targetDist)/200
+    C= (trtDist + confDist + 2*targetDist)/4
     np.savetxt('X_Dist.csv', trtDist, delimiter=',')
     np.savetxt('Z_Dist.csv', confDist, delimiter=',')
     np.savetxt('Y_Dist.csv', targetDist, delimiter=',')
@@ -1294,6 +1310,14 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
     T_ids= []
     C_ids = []
 
+    conf_T = {}
+    conf_C = {}
+    # confDict_T = {}
+    # confDict_C = {}
+    confVarSet =  (trtmntVar|confoundersVar|targetVar)
+    for var in confVarSet:
+        conf_T[var] = [[],[],[],[],[],[],[]]
+        conf_C[var] = [[], [], [], [], [], [], []]
 
     for pair in matchedPairs:
         index, w  = distanceInfoT[outliersIndexT[pair[0]],0], distanceInfoT[outliersIndexT[pair[0]], 1]
@@ -1302,8 +1326,13 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
         T_ids.append((index,w))
         col= "memIndex_{}".format(w)
         col_prev = "memIndex_{}".format(w-anchorDist+1)
-        memtotT.append( df.loc[index, col]- df.loc[index, col_prev]                                                                  )
+        memtotT.append(df.loc[index, col] - df.loc[index, col_prev])
         memtotT_prev.append(df.loc[index, col_prev])
+        for confVar in confVarSet:
+            for waveOffset in range(0,7):
+                col_conf = "{}_n_{}".format(confVar,w-waveOffset)
+                conf_T[confVar][waveOffset].append(df.loc[index, col_conf])
+    # confDict_T[confVar]=conf_T.copy()
 
     for pair in matchedPairs:
         index, w  = distanceInfoC[outliersIndexC[pair[1]],0],distanceInfoC[outliersIndexC[pair[1]], 1]
@@ -1314,7 +1343,10 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
         col_prev = "memIndex_{}".format(w-anchorDist+1)
         memtotC.append( df.loc[index, col]-df.loc[index, col_prev])
         memtotC_prev.append( df.loc[index, col_prev])
-
+        for confVar in confVarSet:
+            for waveOffset in range(0,7):
+                col_conf = "{}_n_{}".format(confVar,w-waveOffset)
+                conf_C[confVar][waveOffset].append(df.loc[index, col_conf])
 
 
     dump2DMatrix(np.array(T_ids), var, "Treatment_Ids")
@@ -1325,7 +1357,7 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
     np.array(memtotT_prev).tofile("memIndexValues_base_Treatment_{}.csv".format(var), sep=',')
     np.array(memtotC_prev).tofile("memIndexValues_base_Control_{}.csv".format(var), sep=',')
     print ("memtotC:{}, memtotT:{}, memtotC_prev:{}, memtotT_prev:{}".format(np.mean(memtotC), np.mean(memtotT), np.mean(memtotC_prev), np.mean(memtotT_prev)))
-    return [memtotC, memtotT, memtotC_prev, memtotT_prev]   
+    return [memtotC, memtotT, memtotC_prev, memtotT_prev, conf_C, conf_T]
 
 
 
@@ -1449,8 +1481,8 @@ def tuneL(Data, nanLabel, distanceInfo, var, string):
     isKnown = np.array(isKnown)
     
 
-    UPPER_LIMIT=500  #to be fixed
-    LOWER_LIMIT=100
+    UPPER_LIMIT= 2000  #to be fixed
+    LOWER_LIMIT= 500
     Data[Data==0] = np.partition(np.unique(Data),1)[1]/10.0
     Data = np.log(Data)
     Data.tofile("{}_distance_{}.csv".format(string, var), sep=',')
@@ -1669,13 +1701,13 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
 
     trtSeq = id2array(trtSeq)
     weights = (~(trtSeq==2)).astype(int)
-    trtSignal = (trtSeq,weights)                
+    trtSignal = (trtSeq,weights)
     distanceInfoT = measureSimilarity_efficient(var, trtSignal, df, nanLabel, place_holder)
     outliersIndexT = detectOutliers(distanceInfoT, nanLabel, var, "Treatment")
 
     anchorPoint = (np.where(trtSeq!=2)[0][0])
     anchorDist = len(trtSeq)- anchorPoint
-    
+
     ctrlSeq = np.zeros(len(trtSeq))
     ctrlWeights = np.ones(len(trtSeq))
     ctrlWeights[:(len(trtSeq)-anchorDist)]=0
@@ -1692,7 +1724,12 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
         cache[array2id(trtSeq)] = np.nan
         return np.nan
 
+    #added
     #C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
+    #C = computeDistanceMatrix2(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
+    #matchedPairs = performMatching(C)
+
+
     C = computeDistanceMatrix2_RBD(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
     matchedPairs = performMatching_RBD(C, len(outliersIndexT))
     if (len(matchedPairs)<4):
@@ -1715,16 +1752,62 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     with open("searchResult.txt","a") as f:
         meanValsStr = str(meanVals)
         f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
-    
-    
-    # if (isBiased):
-    #     cache[array2id(trtSeq)]= np.nan
-    #     return np.nan
-    # else:
+
+    confVarSet= (trtmntVar|confoundersVar|targetVar)
+    confDict_T= targetValues[5]
+    confDict_C= targetValues[4]
+    confPvals = {}
+    # conf_T_mean={}
+    # conf_C_mean = {}
+    for confVar in confVarSet:
+        pVals=[]
+        for index in range(0,7):
+            if np.array_equal(confDict_T[confVar][index],confDict_C[confVar][index]):
+                pval = 0
+            else:
+                pval = computePValue(confDict_T[confVar][index], confDict_C[confVar][index])
+            pVals.append(pval)
+        confPvals[confVar] = pVals
+
+    with open("confPvals.txt","a") as f:
+        f.write("trt seq: {}, n:{}\n".format(trtSeq.astype(int),len(matchedPairs)))
+        f.write(" "*60)
+        for char in array2id(trtSeq):
+            f.write(char)
+            f.write(" "*11)
+        f.write("\n")
+        for confVar in confPvals:
+            f.write("treatment variable: {}    ".format(var.ljust(9, ' ')))
+            f.write("  variable: {}   ".format(confVar.ljust(12, ' ')))
+            for pval in confPvals[confVar][::-1]:
+                f.write("{0:.2E}    ".format(pval))
+            f.write("\n")
+            # f.write("\t trtMean: {}\t".format(confVar.ljust(12, ' ')))
+            f.write(" "*60)
+            for i in range(6,-1,-1):
+                f.write("{0:0.2f}        ".format(np.nanmean(confDict_T[confVar][i])))
+            f.write("\n")
+            f.write(" " * 60)
+            for i in range(6,-1,-1):
+                f.write("{0:0.2f}        ".format(np.nanmean(confDict_C[confVar][i])))
+            f.write("\n")
+        f.write("\n\n")
     cache[array2id(trtSeq)]= pval
     return pval
 
 
+def computeConfPvals(confVarSet, confDict_T, confDict_C):
+    confPvals={}
+    for confVar in confVarSet:
+        pVals=[]
+        for index in range(0,7):
+            if np.array_equal(confDict_T[confVar][index],confDict_C[confVar][index]):
+                pval = 0
+            else:
+                pval = computePValue(confDict_T[confVar][index], confDict_C[confVar][index])
+            pVals.append(pval)
+        confPvals[confVar] = pVals
+    return confPvals
 
 
 def evaluate(var, trtSeq):
