@@ -980,10 +980,25 @@ def preprocess(df):
 
 
 def detectOutliers(distanceInfo, nanLabel, var, string, L=3):
+    isKnown = []
+    for i in range(0,len(distanceInfo)):
+        index = int(distanceInfo[i,0])
+        w = int(distanceInfo[i,1])
+        col= "memIndex_{}".format(w)
+        isKnown.append(not nanLabel.loc[index,col])
+    isKnown = np.array(isKnown)
     D = distanceInfo[:,2].copy()
-    outliersIndex, L =  tuneL(D, nanLabel, distanceInfo, var, string)
+    outliers = D < 0.05
+    outliers =  np.logical_and(outliers, isKnown)
+    outliersIndex = np.where(outliers)[0]
+    #outliersIndex, L =  tuneL(D, nanLabel, distanceInfo, var, string)
+    print ("passed samples: {}".format(len(outliersIndex)))
+    UPPER_LIMIT=1000
+    if (len(outliersIndex)>UPPER_LIMIT):
+        idx = np.argpartition(D[outliersIndex], UPPER_LIMIT)[:UPPER_LIMIT]
+        outliersIndex = outliersIndex[idx]
+    print ("samples size after pruning: {}".format(len(outliersIndex)))
     return outliersIndex
-
 
 def removeUnknownMI(outliersIndex, distanceInfo, nanLabel):
     filteredIndex = []
@@ -1734,7 +1749,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     matchedPairs = performMatching_RBD(C, len(outliersIndexT))
     if (len(matchedPairs)<4):
         with open("searchResult.txt", "a") as f:
-            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples"))
+            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples out of ({},{})".format(len(outliersIndexT), len(outliersIndexC))))
         cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
