@@ -633,6 +633,8 @@ def getTargetValues(df, treatmentGroups, indexes, waveNumber):
     return [memtotC, memtotT]
 
 def computePValue(X,Y):
+    if np.array_equal(X,Y):
+        return 2
     res= scipy.stats.wilcoxon(X,Y,"wilcox")
     pVal = res[1]
     return pVal
@@ -988,12 +990,12 @@ def detectOutliers(distanceInfo, nanLabel, var, string, L=3):
         isKnown.append(not nanLabel.loc[index,col])
     isKnown = np.array(isKnown)
     D = distanceInfo[:,2].copy()
-    outliers = D < 0.05
+    outliers = D < 0.1
     outliers =  np.logical_and(outliers, isKnown)
     outliersIndex = np.where(outliers)[0]
     #outliersIndex, L =  tuneL(D, nanLabel, distanceInfo, var, string)
     print ("passed samples: {}".format(len(outliersIndex)))
-    UPPER_LIMIT=1000
+    UPPER_LIMIT=2000
     if (len(outliersIndex)>UPPER_LIMIT):
         idx = np.argpartition(D[outliersIndex], UPPER_LIMIT)[:UPPER_LIMIT]
         outliersIndex = outliersIndex[idx]
@@ -1585,7 +1587,7 @@ def computeDiff(ids, df):
 
 def fetchLEHyps(path):
     hyps = genfromtxt(path, delimiter=',')
-    hyps = hyps[1:,:-1] 
+    #hyps = hyps[1:,:-1] 
     LEHyps = set()
     for i in range(len(hyps)):
     #for i in range(3):
@@ -1593,8 +1595,9 @@ def fetchLEHyps(path):
         if (seq==1).any():
             strSeq= str(seq)
             pattern = re.sub("[^0-9]", "",strSeq)
-            fixed = pattern.replace("0","2")
-            LEHyps.add(fixed)
+            #fixed = pattern.replace("0","2")
+            #LEHyps.add(fixed)
+            LEHyps.add(pattern)
     return LEHyps
 
 def splitStr(word): 
@@ -1778,7 +1781,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
         pVals=[]
         for index in range(0,7):
             if np.array_equal(confDict_T[confVar][index],confDict_C[confVar][index]):
-                pval = 0
+                pval = 2
             else:
                 pval = computePValue(confDict_T[confVar][index], confDict_C[confVar][index])
             pVals.append(pval)
@@ -1817,7 +1820,7 @@ def computeConfPvals(confVarSet, confDict_T, confDict_C):
         pVals=[]
         for index in range(0,7):
             if np.array_equal(confDict_T[confVar][index],confDict_C[confVar][index]):
-                pval = 0
+                pval = 2
             else:
                 pval = computePValue(confDict_T[confVar][index], confDict_C[confVar][index])
             pVals.append(pval)
