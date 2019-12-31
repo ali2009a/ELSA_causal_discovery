@@ -21,6 +21,17 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.utils.extmath import cartesian
 import json
 
+import logging
+import os
+from functools import partial
+from multiprocessing.pool import Pool
+from time import time
+import multiprocessing
+
+l = multiprocessing.Lock()
+
+
+
 #"scako" was removed because wave 1 had different scale
 trtmntVar = set(["scfrda","scfrdg","scfrdm","heacta", "heactb","heactc", "scorg03","scorg06","scorg05","scorg07","heskb"]) #11
 confoundersVar = set(["indager", "hehelf","dhsex","totwq10_bu_s"])   #4
@@ -1174,9 +1185,9 @@ def computeDistanceMatrix2_RBD(df, nanLabel, trtVariable, outliersIndexT, outlie
     confDist= computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, confoundersVar, False, trtSeq)
     targetDist=computeAvgDistance2_RBD(df, nanLabel, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, targetVar, True, trtSeq)
     C= (trtDist + confDist + 2*targetDist)/4
-    np.savetxt('X_Dist.csv', trtDist, delimiter=',')
-    np.savetxt('Z_Dist.csv', confDist, delimiter=',')
-    np.savetxt('Y_Dist.csv', targetDist, delimiter=',')
+    #np.savetxt('X_Dist.csv', trtDist, delimiter=',')
+    #np.savetxt('Z_Dist.csv', confDist, delimiter=',')
+    #np.savetxt('Y_Dist.csv', targetDist, delimiter=',')
 
     return C
 
@@ -1366,13 +1377,13 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
                 conf_C[confVar][waveOffset].append(df.loc[index, col_conf])
 
 
-    dump2DMatrix(np.array(T_ids), var, "Treatment_Ids")
-    dump2DMatrix(np.array(C_ids), var, "Control_Ids")
-    np.array(memtotT).tofile("memIndexValues_Treatment_{}.csv".format(var), sep=',')
-    np.array(memtotC).tofile("memIndexValues_Control_{}.csv".format(var), sep=',')
+    #dump2DMatrix(np.array(T_ids), var, "Treatment_Ids")
+    #dump2DMatrix(np.array(C_ids), var, "Control_Ids")
+    #np.array(memtotT).tofile("memIndexValues_Treatment_{}.csv".format(var), sep=',')
+    #np.array(memtotC).tofile("memIndexValues_Control_{}.csv".format(var), sep=',')
     
-    np.array(memtotT_prev).tofile("memIndexValues_base_Treatment_{}.csv".format(var), sep=',')
-    np.array(memtotC_prev).tofile("memIndexValues_base_Control_{}.csv".format(var), sep=',')
+    #np.array(memtotT_prev).tofile("memIndexValues_base_Treatment_{}.csv".format(var), sep=',')
+    #np.array(memtotC_prev).tofile("memIndexValues_base_Control_{}.csv".format(var), sep=',')
     print ("memtotC:{}, memtotT:{}, memtotC_prev:{}, memtotT_prev:{}".format(np.mean(memtotC), np.mean(memtotT), np.mean(memtotC_prev), np.mean(memtotT_prev)))
     return [memtotC, memtotT, memtotC_prev, memtotT_prev, conf_C, conf_T]
 
@@ -1737,8 +1748,10 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     outliersIndexC = detectOutliers(distanceInfoC, nanLabel, var, "Control")
 
     if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
+        l.acquire()
         with open("searchResult.txt","a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
+        l.release()
         cache[array2id(trtSeq)] = np.nan
         return np.nan
 
@@ -1751,8 +1764,10 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     C = computeDistanceMatrix2_RBD(df, nanLabel, var, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, trtSeq)
     matchedPairs = performMatching_RBD(C, len(outliersIndexT))
     if (len(matchedPairs)<4):
+        l.acquire()
         with open("searchResult.txt", "a") as f:
             f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples out of ({},{})".format(len(outliersIndexT), len(outliersIndexC))))
+        l.release()
         cache[array2id(trtSeq)] = np.nan
         return np.nan             
 
@@ -1767,10 +1782,12 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, var, trtSeq)
     targetValues = extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanceInfoT, distanceInfoC, var, anchorDist)
     pval = computePValue(targetValues[0], targetValues[1])
+    l.acquire()
     with open("searchResult.txt","a") as f:
         meanValsStr = str(meanVals)
         f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
-
+    l.release()
+    
     confVarSet= (trtmntVar|confoundersVar|targetVar)
     confDict_T= targetValues[5]
     confDict_C= targetValues[4]
@@ -1787,6 +1804,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
             pVals.append(pval)
         confPvals[confVar] = pVals
 
+    l.acquire()
     with open("confPvals.txt","a") as f:
         f.write("trt seq: {}, n:{}\n".format(trtSeq.astype(int),len(matchedPairs)))
         f.write(" "*60)
@@ -1810,6 +1828,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
                 f.write("{0:0.2f}        ".format(np.nanmean(confDict_C[confVar][i])))
             f.write("\n")
         f.write("\n\n")
+    l.release()
     cache[array2id(trtSeq)]= pval
     return pval
 
@@ -2233,13 +2252,18 @@ def runHyps_efficient(var, LowE_Path):
         df, nanLabel = preprocess(df)
     pVals = {}
     U = fetchLEHyps(LowE_Path)
+    U=list(U)
     print ("len(U):{}".format(len(U)))
     signalLength = len(next(iter(U)))
     place_holder = get_place_holder(var, df, nanLabel, signalLength)
     print("evaluating hyps:")
-    for hypID in U:
-        print ("evaluating hyp:{}".format(hypID))
-        evaluate_RBD_efficient(var, hypID, df, nanLabel, place_holder)
+    pfunc= partial(worker, var=var, df=df, nanLabel=nanLabel, place_holder=place_holder)
+    pool = Pool(10)
+    with pool as p:
+        p.map(pfunc, U)
+    pool.close()
+    pool.join()
+    
 
 
 def runHypsForAllVars(lowE_Path):
@@ -2248,7 +2272,8 @@ def runHypsForAllVars(lowE_Path):
       runHyps_efficient(var, lowE_Path)
 
 
-
+def worker(trtSeq, df, nanLabel, place_holder, var):
+   evaluate_RBD_efficient(var=var, trtSeq=trtSeq, df=df, nanLabel=nanLabel, place_holder=place_holder)
 
 
 
