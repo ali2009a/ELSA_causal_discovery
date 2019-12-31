@@ -1750,7 +1750,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     if (len(outliersIndexC)==0 or  len(outliersIndexT)==0 ):
         l.acquire()
         with open("searchResult.txt","a") as f:
-            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
+            f.write("{0} pattern: {1} ; {2}\n".format(var, trtSeq.astype(int), "NA - outlier detection returned zero samples"))
         l.release()
         cache[array2id(trtSeq)] = np.nan
         return np.nan
@@ -1766,7 +1766,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     if (len(matchedPairs)<4):
         l.acquire()
         with open("searchResult.txt", "a") as f:
-            f.write("{0} pattern: {1} , {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples out of ({},{})".format(len(outliersIndexT), len(outliersIndexC))))
+            f.write("{0} pattern: {1} ; {2}\n".format(var, trtSeq.astype(int), "NA - matching returned less than four samples out of ({},{})".format(len(outliersIndexT), len(outliersIndexC))))
         l.release()
         cache[array2id(trtSeq)] = np.nan
         return np.nan             
@@ -1785,7 +1785,7 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
     l.acquire()
     with open("searchResult.txt","a") as f:
         meanValsStr = str(meanVals)
-        f.write("{0} pattern: {1}, pval={2:}, ACE={4: .2f}, n={3:d}, DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
+        f.write("{0} pattern: {1}; pval={2:}; ACE={4: .2f}; n={3:d}; DCT Mean={5}\n".format(var, trtSeq.astype(int), pval, len(matchedPairs), np.mean(targetValues[1])- np.mean(targetValues[0]),meanValsStr))
     l.release()
     
     confVarSet= (trtmntVar|confoundersVar|targetVar)
