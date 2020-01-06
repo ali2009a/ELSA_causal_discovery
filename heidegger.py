@@ -1352,8 +1352,8 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
         w=int(w)
         index=  int(index)
         T_ids.append((index,w))
-        col= "memIndex_{}".format(w)
-        col_prev = "memIndex_{}".format(w-anchorDist+1)
+        col= "memIndex_n_{}".format(w)
+        col_prev = "memIndex_n_{}".format(w-anchorDist+1)
         memtotT.append(df.loc[index, col] - df.loc[index, col_prev])
         memtotT_prev.append(df.loc[index, col_prev])
         for confVar in confVarSet:
@@ -1367,8 +1367,8 @@ def extractTargetValues(df, matchedPairs, outliersIndexT, outliersIndexC,distanc
         w=int(w)
         index=  int(index)
         C_ids.append((index,w))
-        col= "memIndex_{}".format(w)
-        col_prev = "memIndex_{}".format(w-anchorDist+1)
+        col= "memIndex_n_{}".format(w)
+        col_prev = "memIndex_n_{}".format(w-anchorDist+1)
         memtotC.append( df.loc[index, col]-df.loc[index, col_prev])
         memtotC_prev.append( df.loc[index, col_prev])
         for confVar in confVarSet:
@@ -1773,10 +1773,10 @@ def evaluate_RBD_efficient(var, trtSeq, df, nanLabel, place_holder):
 
 
     
-    anchorPoint = (np.where(trtSeq==1)[0][0]-1)
-    if (anchorPoint<0):
-        anchorPoint=0
-    anchorDist = len(trtSeq)- anchorPoint
+    #anchorPoint = (np.where(trtSeq==1)[0][0]-1)
+    #if (anchorPoint<0):
+    #    anchorPoint=0
+    #anchorDist = len(trtSeq)- anchorPoint
 
     matchedPairs = fixPairsOffset(matchedPairs, len(outliersIndexT))
     [isBiased, meanVals] = isDCBiased(df, matchedPairs, outliersIndexT, outliersIndexC, distanceInfoT, distanceInfoC, var, trtSeq)
@@ -2267,7 +2267,8 @@ def runHyps_efficient(var, LowE_Path):
 
 
 def runHypsForAllVars(lowE_Path):
-   for var in trtmntVar:
+   #for var in trtmntVar:
+   for var in ["heactb","scorg05","scfrda","scfrdg","scfrdm","heacta", "heactc", "scorg03","scorg06", "scorg07","heskb"]:
       print ("var: {}".format(var))
       runHyps_efficient(var, lowE_Path)
 
